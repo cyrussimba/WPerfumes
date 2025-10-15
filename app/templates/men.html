@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="brandTitle">Filter Perfume Brands</title>
+    <style>
+        :root {
+            --light-brown: #d7ccc8;
+            --dark-text: #3e2723;
+            --light-silver: #e0e0e0;
+            --white-bg: #ffffff;
+            --dark-accent: #000000;
+            --footer-link-color: #5d4037;
+            --light-green: #c8e6c9;
+            --filter-active: #5d4037;
+            --brand-border: #bcaaa4;
+            --slider-bg: #f5f5f5;
+            --arrow-color: #5d4037;
+            --card-gap: 10px;
+            --cards-visible: 4;
+            --animation-speed: 100s;
+            --rank-red: #cc0000;
+            --sale-red: #e53935;
+            --section-gap: 28px;
+            --primary-white: #ffffff;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background-color: var(--white-bg);
+            color: var(--dark-text);
+            margin: 0;
+        }
+
+        /* ... rest of CSS unchanged ... */
+        .navbar {
+            background-color: var(--light-brown);
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--light-silver);
+        }
+
+        .brand-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--dark-text);
+            text-decoration: none;
+            letter-spacing: 1px;
+            margin-right: 20px;
+        }
+
+        .nav-tabs {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+        }
+
+        .nav-tabs li a {
+            text-decoration: none;
+            color: var(--dark-text);
+            padding: 7px 14px;
+            display: block;
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .nav-tabs li a:hover {
+            background-color: var(--light-green);
+            color: var(--dark-accent);
+        }
+
+        .navbar-center {
+            flex-grow: 1;
+            max-width: 350px;
+            margin: 0 10px;
+        }
+
+        .search-container input[type="text"] {
+            width: 100%;
+            padding: 6px 14px;
+            border: 1px solid var(--light-silver);
+            background-color: var(--light-silver);
+            border-radius: 20px;
+            outline: none;
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-right a {
+            text-decoration: none;
+            color: var(--dark-text);
+            padding: 6px 10px;
+            margin-left: 10px;
+            border: 1px solid var(--dark-text);
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+            font-size: 14px;
+        }
+
+        .navbar-right .login-btn {
+            background-color: var(--dark-text);
+            color: var(--white-bg);
+            border-color: var(--dark-text);
+        }
+
+        .navbar-right .login-btn:hover,
+        .navbar-right .cart-btn:hover {
+            background-color: var(--light-green);
+            color: var(--dark-accent);
+            border-color: var(--light-green);
+        }
+
+        section,
+        main.content-container {
+            margin-bottom: var(--section-gap);
+        }
+
+        .footer {
+            margin-top: var(--section-gap);
+        }
+
+        .top-picks-section {
+            margin-bottom: 0;
+        }
+
+        .content-container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 5px;
+        }
+
+        .header-and-filters {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid var(--light-brown);
+            padding-bottom: 5px;
+            margin-bottom: 18px;
+        }
+
+        .page-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: var(--dark-accent);
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .filter-controls label {
+            font-weight: bold;
+            font-size: 13px;
+            color: var(--dark-text);
+            margin-right: 2px;
+        }
+
+        .filter-select {
+            padding: 6px 10px;
+            border: 1px solid var(--brand-border);
+            border-radius: 4px;
+            background-color: var(--white-bg);
+            font-family: 'Georgia', serif;
+            font-size: 15px;
+            cursor: pointer;
+            min-width: 120px;
+        }
+
+        .status-message {
+            margin-bottom: 12px;
+            padding: 5px;
+            background-color: var(--light-brown);
+            border-radius: 4px;
+            color: var(--dark-accent);
+            font-style: italic;
+        }
+
+        .discount-info {
+            background: #f1c40f1a;
+            color: #b8860b;
+            border-radius: 4px;
+            padding: 7px 10px;
+            font-size: 1em;
+            font-weight: 500;
+            margin-bottom: 14px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            max-width: 480px;
+        }
+
+        .brand-list-container {
+            margin-top: 10px;
+        }
+
+        .slide-in-reveal {
+            transform: translateY(-10px);
+            opacity: 0;
+            animation: slide-reveal 1s ease-out 1 forwards;
+        }
+
+        @keyframes slide-reveal {
+            0% {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .brand-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .brand-list li {
+            width: 100%;
+            height: 120px;
+            padding: 6px;
+            border: 1px solid var(--brand-border);
+            border-radius: 8px;
+            background-color: var(--white-bg);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .brand-list li:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .product-image-container {
+            height: 85px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            background-color: var(--slider-bg);
+            border-radius: 4px;
+        }
+
+        .product-image {
+            max-height: 90%;
+            max-width: 90%;
+            object-fit: contain;
+        }
+
+        .product-name {
+            font-weight: bold;
+            font-size: 15px;
+            color: var(--dark-accent);
+            margin-bottom: 4px;
+            flex-grow: 0;
+            line-height: 1.2;
+        }
+
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 14px;
+            padding: 4px;
+            border-top: 1px solid var(--light-silver);
+            gap: 6px;
+        }
+
+        .pagination-controls button {
+            background-color: var(--white-bg);
+            color: var(--dark-text);
+            border: 1px solid var(--light-brown);
+            padding: 6px 9px;
+            margin: 0 3px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .pagination-controls button.active {
+            background-color: var(--dark-text);
+            color: var(--white-bg);
+            border-color: var(--dark-text);
+            pointer-events: none;
+        }
+
+        #autoSlideToggle {
+            margin-left: 8px;
+            background-color: var(--light-green);
+            border-color: #a5d6a7;
+        }
+
+        .top-picks-section {
+            background-color: var(--slider-bg);
+            padding: 16px 0;
+            margin-top: 18px;
+            border-top: 2px solid var(--light-brown);
+        }
+
+        .perfume-card {
+            position: relative;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.3s;
+        }
+
+        .card-rank {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            z-index: 5;
+            padding: 2px 4px;
+            background-color: var(--white-bg);
+            border: 1px solid var(--rank-red);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--rank-red);
+            line-height: 1;
+        }
+
+        .card-details {
+            font-size: 13px;
+            margin-top: 2px;
+            color: var(--dark-text);
+        }
+
+        .price-details {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            margin-top: 2px;
+            margin-bottom: 2px;
+        }
+
+        .old-price {
+            color: #757575;
+            text-decoration: line-through;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        .new-price {
+            color: var(--sale-red);
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .top-picks-header {
+            max-width: 1200px;
+            margin: 0 auto 10px;
+            padding: 0 10px;
+        }
+
+        .top-picks-header h2 {
+            font-size: 22px;
+            color: var(--dark-accent);
+            padding-bottom: 0;
+            margin: 0;
+        }
+
+        .card-upload-image {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin: 6px auto 6px;
+            border: 2px solid var(--brand-border);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+
+        .slider-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 10px;
+            position: relative;
+        }
+
+        .slider-wrapper {
+            overflow-x: scroll;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            scroll-snap-type: x mandatory;
+            padding-bottom: 10px;
+        }
+
+        .slider-wrapper::-webkit-scrollbar {
+            display: none;
+        }
+
+        .slider-track {
+            display: flex;
+            width: fit-content;
+            animation: slide-scroll var(--animation-speed) linear infinite;
+        }
+
+        .slider-wrapper:hover .slider-track,
+        .slider-wrapper:focus .slider-track {
+            animation-play-state: paused;
+        }
+
+        .slider-card-container {
+            display: flex;
+            min-width: 100%;
+        }
+
+        .perfume-card {
+            flex: 0 0 25%;
+            width: calc((100% / var(--cards-visible)) - var(--card-gap));
+            min-width: 200px;
+            max-width: 230px;
+            scroll-snap-align: start;
+            box-sizing: border-box;
+            padding: 6px;
+            margin-right: var(--card-gap);
+            text-align: center;
+            border: 1px solid var(--light-silver);
+            border-radius: 6px;
+            background-color: var(--white-bg);
+            transition: transform 0.3s;
+        }
+
+        .slider-track .slider-card-container:last-child .perfume-card:last-child {
+            margin-right: 0;
+        }
+
+        .perfume-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .card-group-label {
+            font-size: 10px;
+            color: var(--footer-link-color);
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .card-title {
+            font-weight: bold;
+            font-size: 13px;
+            color: var(--dark-accent);
+        }
+
+        @keyframes slide-scroll {
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        .slider-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid var(--light-silver);
+            color: var(--arrow-color);
+            padding: 8px;
+            cursor: pointer;
+            z-index: 10;
+            line-height: 1;
+            font-size: 18px;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+            transition: background-color 0.2s;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .footer {
+            background-color: var(--light-brown);
+            color: var(--dark-text);
+            padding: 20px 10px 10px;
+            border-top: 1px solid var(--light-silver);
+            margin-top: var(--section-gap);
+        }
+
+        .footer-container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: left;
+            flex-wrap: wrap;
+        }
+
+        .footer-section {
+            flex: 1;
+            min-width: 180px;
+            margin-bottom: 10px;
+        }
+
+        .footer-section h4 {
+            font-size: 15px;
+            margin-bottom: 10px;
+            color: var(--dark-accent);
+        }
+
+        .social-icons a {
+            font-size: 20px;
+            color: var(--dark-text);
+            text-decoration: none;
+            margin-right: 10px;
+            transition: color 0.3s;
+        }
+
+        .payment-methods {
+            margin-top: 12px;
+            font-size: 20px;
+        }
+
+        .payment-methods span {
+            margin-right: 7px;
+            color: var(--footer-link-color);
+        }
+
+        .footer-section p,
+        .footer-section a {
+            color: var(--footer-link-color);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            transition: color 0.3s;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            margin-top: 18px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(62, 39, 35, 0.1);
+            font-size: 11px;
+            color: var(--footer-link-color);
+        }
+
+        .cart-btn {
+            color: var(--dark-text);
+            padding: 6px 10px;
+            margin-left: 10px;
+            border: 1px solid var(--dark-text);
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+        }
+
+        .cart-count-badge {
+            background-color: var(--sale-red);
+            color: var(--primary-white);
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            position: relative;
+            top: -8px;
+            right: 8px;
+        }
+
+        .login-menu-container {
+            position: relative;
+        }
+
+        .login-btn {
+            background-color: var(--dark-text);
+            color: var(--primary-white);
+            border-color: var(--dark-text);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+            padding: 6px 10px;
+            margin-left: 10px;
+            border: 1px solid var(--dark-text);
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+            font-size: 14px;
+        }
+
+        .login-btn svg {
+            fill: var(--primary-white);
+            stroke: var(--primary-white);
+        }
+
+        .login-menu-container:hover .login-btn {
+            background-color: #5d4037;
+            border-color: #5d4037;
+        }
+
+        .login-menu-container:hover .login-btn svg {
+            fill: #c8e6c9;
+            stroke: #c8e6c9;
+        }
+
+        .login-submenu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1000;
+            background-color: var(--white-bg);
+            border: 1px solid var(--light-silver);
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 5px 0;
+            margin-top: 5px;
+            min-width: 120px;
+        }
+
+        .login-menu-container:hover .login-submenu {
+            display: block;
+        }
+
+        .login-submenu a {
+            display: block;
+            padding: 8px 15px;
+            color: var(--dark-text);
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            border: none;
+            margin: 0;
+        }
+
+        .login-submenu a:hover {
+            background-color: var(--light-green);
+        }
+
+        /* Additional styles for dynamic Top Picks by Lifestyle cards */
+        #dynamicTopPicksByLifestyleContainer {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .dynamic-top-pick-card {
+            height: 100%;
+            min-height: 220px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 18px;
+            background: #f6f9f8;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(44, 62, 80, 0.07);
+            padding: 16px;
+        }
+
+        .dynamic-top-pick-card img {
+            height: 72px;
+            border-radius: 8px;
+            margin-right: 18px;
+            background: #eee;
+        }
+
+        .dynamic-top-pick-details {
+            flex: 1;
+        }
+
+        .dynamic-top-pick-title {
+            font-size: 1.15em;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        .dynamic-top-pick-brand {
+            font-size: 1em;
+            color: #2d8f7c;
+            margin-bottom: 5px;
+        }
+
+        .dynamic-top-pick-tags {
+            font-size: 0.95em;
+            color: #888;
+            margin-bottom: 2px;
+        }
+
+        .dynamic-top-pick-sales {
+            font-size: 0.93em;
+            color: #c88c00;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <a href="{{ url_for('index') }}" class="brand-logo">WPerfumes</a>
+            <ul class="nav-tabs">
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('men') }}">Men</a></li>
+                <li><a href="{{ url_for('women') }}">Women</a></li>
+                <li><a href="{{ url_for('beauty') }}">Beauty</a></li>
+            </ul>
+        </div>
+        <div class="navbar-center">
+            <div class="search-container"><input type="text" placeholder="Search for scents, notes, or brands..."></div>
+        </div>
+        <div class="navbar-right">
+            <a href="{{ url_for('cart') }}" class="cart-btn" id="cartBtn">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61l1.38-8.19H6"></path>
+                </svg>
+                <span>Cart</span>
+                <span class="cart-count-badge" id="cartCountBadge" style="display:none;">0</span>
+            </a>
+            <div class="login-menu-container">
+                <a href="{{ url_for('login_page') }}" class="login-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="7" r="4"></circle>
+                        <path d="M5.5 21a5.5 5.5 0 0 1 13 0"></path>
+                    </svg>
+                    <span>Login</span>
+                </a>
+                <div class="login-submenu">
+                    <a href="{{ url_for('signup') }}" class="signup-btn">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="content-container">
+        <div class="header-and-filters">
+            <h1 class="page-title">Discover Our Products</h1>
+            <div class="filter-controls">
+                <label for="genderFilter">Gender:</label>
+                <select id="genderFilter" class="filter-select">
+                    <option value="" disabled selected>Select Gender</option>
+                    <option value="unisex">Unisex </option>
+                    <option value="men">Men's </option>
+                    <option value="women">Women's </option>
+                </select>
+                <label for="brandFilter">Brand:</label>
+                <select id="brandFilter" class="filter-select" disabled>
+                    <option value="" disabled selected>Select Brand (Locked)</option>
+                </select>
+            </div>
+        </div>
+        <div id="discountPercentInfo" class="discount-info" style="display:none;"></div>
+        <p class="status-message" id="brandStatus">Please select a Gender to load the list of available products.</p>
+        <div class="brand-list-container" id="brandListContainer">
+            <ul class="brand-list" id="brandList"></ul>
+            <div class="pagination-controls" id="paginationControls">
+                <button id="autoSlideToggle">▶️ Start Auto-Slide</button>
+            </div>
+        </div>
+        <div class="product-grid" id="productGrid"></div>
+    </main>
+    <!-- Dynamic Top Picks by Lifestyle section -->
+    <section class="top-picks-section">
+        <div class="content-container">
+            <div class="top-picks-header">
+                <div
+                    style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--light-brown);padding-bottom:6px;">
+                    <h2>Top Picks by Lifestyle</h2>
+                </div>
+            </div>
+            <div id="dynamicTopPicksByLifestyleContainer">
+                <!-- Dynamic Top Picks will be rendered here -->
+            </div>
+        </div>
+    </section>
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-section">
+                <h4>Connect With Us</h4>
+                <div class="social-icons"><a href="#" title="Facebook">📘</a><a href="#" title="Instagram">📸</a><a
+                        href="#" title="Twitter">🐦</a><a href="#" title="Pinterest">📌</a></div>
+                <h4 style="margin-top:18px;">Payment Methods</h4>
+                <div class="payment-methods"><span>VISA</span><span>MC</span><span>Pay</span><span>PPL</span></div>
+            </div>
+            <div class="footer-section">
+                <h4>Contact Us</h4>
+                <p>Email: <a href="mailto:support@wperfumes.com">support@wperfumes.com</a></p>
+                <p>Phone: (555) 123-4567</p>
+                <p>Address: 101 Fragrance Lane, Scent City, 90210</p><a href="#">Customer Support</a><a href="#">FAQ</a>
+            </div>
+            <div class="footer-section">
+                <h4>Our Company</h4><a href="#">About WPerfumes</a><a href="#">Our Vision</a><a href="#">Our
+                    Mission</a><a href="#">Careers</a><a href="#">Privacy Policy</a>
+            </div>
+        </div>
+        <div class="footer-bottom">&copy; 2025 WPerfumes. All rights reserved. | Designed with elegance.</div>
+    </footer>
+    <script>
+        // Relative API base for production & dev
+        const API = "/api";
+
+        // Normalize image paths returned from backend to usable browser URLs
+        function toStaticUrl(url) {
+            if (!url) return '{{ url_for("static", filename="images/placeholder.jpg") }}';
+            if (typeof url !== 'string') return '{{ url_for("static", filename="images/placeholder.jpg") }}';
+            if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) return url;
+            // assume backend returned 'images/...'
+            return `/static/${url}`;
+        }
+
+        // Placeholder for cards (Jinja will render this path)
+        const PLACEHOLDER_IMG = '{{ url_for("static", filename="images/placeholder.jpg") }}';
+
+        // Discount logic for banner
+        let checkoutDiscountPercent = 0;
+        async function fetchDiscountPercent() {
+            try {
+                const r = await fetch(`${API}/settings/checkout_discount`);
+                if (!r.ok) {
+                    checkoutDiscountPercent = 0;
+                } else {
+                    const js = await r.json();
+                    checkoutDiscountPercent = parseFloat(js.percent) || 0;
+                }
+                const discountInfoDiv = document.getElementById('discountPercentInfo');
+                if (checkoutDiscountPercent > 0) {
+                    discountInfoDiv.style.display = "block";
+                    discountInfoDiv.innerHTML =
+                        `<span>🌟 <b>Special Offer:</b> <span style="color:#27ae60">${checkoutDiscountPercent}% OFF</span> applied automatically at checkout & in your cart!</span>`;
+                } else {
+                    discountInfoDiv.style.display = "none";
+                }
+            } catch (err) {
+                checkoutDiscountPercent = 0;
+                const discountInfoDiv = document.getElementById('discountPercentInfo');
+                if (discountInfoDiv) discountInfoDiv.style.display = "none";
+                console.warn('fetchDiscountPercent error', err);
+            }
+        }
+        fetchDiscountPercent();
+
+        const BRANDSPERPAGE = 5;
+        let currentPage = 1;
+        let currentBrands = [];
+        let autoSlideInterval = null;
+        const AUTO_SLIDE_DURATION = 4000;
+        let ALL_BRANDS = [];
+        const SOCIAL_GROUPS = [
+            'Students 📚', 'Skilled Office Workers 💻', 'Models 👠', 'CEOs 🏆', 'Gym Persons 💪',
+            'Influencers ✨', 'Creatives 🎨', 'The Traveler ✈️', 'Stay-at-Home Parents 🏡', 'Nightlife Enthusiasts 🍸'
+        ];
+        const createPerfumeCard = (group, index, groupIndex) => {
+            const card = document.createElement('div');
+            const uniqueImgId = `perfume_img_${groupIndex}_${index}`;
+            // fallback placeholder (static)
+            const placeholderImageUrl = PLACEHOLDER_IMG;
+            card.className = 'perfume-card';
+            const groupName = group.split(' ')[0];
+            const brand = ALL_BRANDS.length ? ALL_BRANDS[Math.floor(Math.random() * ALL_BRANDS.length)].name : "Brand";
+            const newPrice = (Math.floor(Math.random() * 61) + 40);
+            const discountFactor = (Math.random() * 0.3) + 1.2;
+            const oldPrice = Math.round(newPrice * discountFactor);
+            card.innerHTML = `
+                <div class="card-rank">#${index}</div>
+                <div class="card-group-label">Top Pick for:</div>
+                <img id="${uniqueImgId}" class="card-upload-image" src="${placeholderImageUrl}" alt="${groupName} Scent Placeholder">
+                <div class="card-title">${brand} - ${groupName} Scent</div>
+                <div class="card-details price-details">
+                    <span class="old-price">$${oldPrice}.00</span>
+                    <span class="new-price">$${newPrice}.00</span>
+                </div>
+            `;
+            return card;
+        };
+        const populateSlider = (containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            SOCIAL_GROUPS.forEach((group, groupIndex) => {
+                for (let i = 1; i <= 5; i++) {
+                    container.appendChild(createPerfumeCard(group, i, groupIndex));
+                }
+            });
+        };
+        const displayBrands = (brands, page) => {
+            const brandList = document.getElementById('brandList');
+            brandList.style.opacity = 0;
+            setTimeout(() => {
+                brandList.innerHTML = '';
+                const start = (page - 1) * BRANDSPERPAGE;
+                const end = start + BRANDSPERPAGE;
+                const paginatedItems = brands.slice(start, end);
+                paginatedItems.forEach((brandObj, index) => {
+                    const brandName = brandObj.name;
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        <div class="product-image-container">
+                            <img src="${toStaticUrl(brandObj.logo)}" alt="${brandName}" class="product-image">
+                        </div>
+                        <div class="product-name" title="${brandName}">${brandName}</div>
+                    `;
+                    listItem.setAttribute('data-brand', brandName.replace(/ /g, '_'));
+                    listItem.addEventListener('click', (e) => {
+                        // navigate to brand page with query param
+                        window.location.href = `/brand?brand=${encodeURIComponent(brandName)}`;
+                    });
+                    brandList.appendChild(listItem);
+                });
+                brandList.style.opacity = 1;
+            }, 300);
+        };
+        const setupPagination = (brands) => {
+            const paginationControls = document.getElementById('paginationControls');
+            const autoSlideToggle = document.getElementById('autoSlideToggle');
+            paginationControls.innerHTML = '';
+            paginationControls.appendChild(autoSlideToggle);
+            const pageCount = Math.ceil(brands.length / BRANDSPERPAGE);
+            for (let i = 1; i <= pageCount; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.setAttribute('data-page', i);
+                if (i === currentPage) {
+                    btn.classList.add('active');
+                }
+                btn.addEventListener('click', (e) => {
+                    stopAutoPagination();
+                    currentPage = parseInt(e.target.dataset.page);
+                    displayBrands(currentBrands, currentPage);
+                    setupPagination(currentBrands);
+                    window.scrollTo({
+                        top: brandListContainer.offsetTop,
+                        behavior: 'smooth'
+                    });
+                });
+                paginationControls.insertBefore(btn, autoSlideToggle);
+            }
+        };
+        const autoPaginate = () => {
+            const totalPages = Math.ceil(currentBrands.length / BRANDSPERPAGE);
+            currentPage++;
+            if (currentPage > totalPages) currentPage = 1;
+            displayBrands(currentBrands, currentPage);
+            setupPagination(currentBrands);
+        };
+        const startAutoPagination = () => {
+            if (autoSlideInterval === null && currentBrands.length > BRANDSPERPAGE) {
+                autoSlideInterval = setInterval(autoPaginate, AUTO_SLIDE_DURATION);
+                document.getElementById('autoSlideToggle').textContent = "⏸️ Stop Auto-Slide";
+                document.getElementById('autoSlideToggle').classList.add('active');
+            }
+        };
+        const stopAutoPagination = () => {
+            if (autoSlideInterval !== null) {
+                clearInterval(autoSlideInterval);
+                autoSlideInterval = null;
+                document.getElementById('autoSlideToggle').textContent = "▶️ Start Auto-Slide";
+                document.getElementById('autoSlideToggle').classList.remove('active');
+            }
+        };
+        const handleAutoSlideToggle = () => {
+            if (autoSlideInterval === null) {
+                startAutoPagination();
+            } else {
+                stopAutoPagination();
+            }
+        };
+        document.addEventListener('DOMContentLoaded', () => {
+            const genderFilter = document.getElementById('genderFilter');
+            const brandFilter = document.getElementById('brandFilter');
+            const brandStatus = document.getElementById('brandStatus');
+            const brandListContainer = document.getElementById('brandListContainer');
+            const autoSlideToggle = document.getElementById('autoSlideToggle');
+            // Use relative API path
+            fetch(`${API}/brands`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to load brands');
+                    return res.json();
+                })
+                .then(brands => {
+                    ALL_BRANDS = brands;
+                    currentBrands = ALL_BRANDS;
+                    displayBrands(currentBrands, currentPage);
+                    setupPagination(currentBrands);
+                }).catch(err => {
+                    console.warn('Failed to fetch brands', err);
+                });
+            genderFilter.addEventListener('change', () => {
+                const selectedGender = genderFilter.value;
+                currentBrands = ALL_BRANDS;
+                currentPage = 1;
+                const selectedGenderText = genderFilter.options[genderFilter.selectedIndex].text.trim().replace(/ \W+$/, '');
+                brandStatus.textContent = `${selectedGenderText} Products. Select a brand or use the filter above.`;
+                brandFilter.disabled = false;
+                brandFilter.innerHTML = '<option value="" disabled selected>Select a Brand</option>';
+                currentBrands.forEach(brandObj => {
+                    const option = document.createElement('option');
+                    option.value = brandObj.name.replace(/ /g, '_');
+                    option.textContent = brandObj.name;
+                    brandFilter.appendChild(option);
+                });
+                displayBrands(currentBrands, currentPage);
+                setupPagination(currentBrands);
+                if (autoSlideInterval !== null) {
+                    stopAutoPagination();
+                    startAutoPagination();
+                }
+            });
+            brandFilter.addEventListener('change', () => {
+                const selectedBrand = brandFilter.value;
+                if (selectedBrand) {
+                    currentBrands = ALL_BRANDS.filter(b => b.name.replace(/ /g, '_') === selectedBrand);
+                    currentPage = 1;
+                    displayBrands(currentBrands, currentPage);
+                    setupPagination(currentBrands);
+                }
+            });
+            autoSlideToggle.addEventListener('click', handleAutoSlideToggle);
+            setTimeout(() => {
+                brandListContainer.classList.add('slide-in-reveal');
+                setTimeout(startAutoPagination, 1000);
+            }, 5000);
+        });
+
+        // Dynamic Top Picks by Lifestyle logic
+        async function loadDynamicTopPicksByLifestyle() {
+            try {
+                const res = await fetch(`${API}/top-picks`);
+                if (!res.ok) throw new Error('Failed to load top-picks');
+                const topPicks = await res.json();
+                const prodRes = await fetch(`${API}/products`);
+                if (!prodRes.ok) throw new Error('Failed to load products');
+                const products = await prodRes.json();
+                const prodMap = {};
+                products.forEach(p => { prodMap[p.id] = p; });
+                const menTopPicks = Array.isArray(topPicks) ? topPicks.filter(tp => tp.pushed) : [];
+                const container = document.getElementById('dynamicTopPicksByLifestyleContainer');
+                container.innerHTML = '';
+                if (menTopPicks.length === 0) {
+                    container.innerHTML = "<div style='color:#888;font-size:1.05em'>No Top Picks by Lifestyle available. Check back soon!</div>";
+                    return;
+                }
+                menTopPicks.forEach(tp => {
+                    const prod = prodMap[tp.product_id];
+                    const imgUrl = prod ? (prod.image_url ? toStaticUrl(prod.image_url) : '{{ url_for("static", filename="images/default.jpg") }}') : '{{ url_for("static", filename="images/default.jpg") }}';
+                    const card = document.createElement('div');
+                    card.className = 'dynamic-top-pick-card';
+                    const tagsText = Array.isArray(tp.tags) ? tp.tags.join(', ') : (tp.tags || '');
+                    card.innerHTML = `
+                        <img src="${imgUrl}" alt="${tp.product_title}">
+                        <div class="dynamic-top-pick-details">
+                            <div class="dynamic-top-pick-title">${tp.product_title}</div>
+                            <div class="dynamic-top-pick-brand">${tp.brand}</div>
+                            <div class="dynamic-top-pick-tags">Lifestyle Tags: ${tagsText}</div>
+                            <div class="dynamic-top-pick-sales">Top Seller: ${tp.sales_count || 0} sold</div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error('Failed to load dynamic top picks', err);
+                document.getElementById('dynamicTopPicksByLifestyleContainer').innerHTML = "<div style='color:#c00'>Failed to load Top Picks.</div>";
+            }
+        }
+        document.addEventListener('DOMContentLoaded', loadDynamicTopPicksByLifestyle);
+    </script>
+</body>
+
+</html>

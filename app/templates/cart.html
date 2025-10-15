@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Your Cart - WPerfumes</title>
+
+    <!-- Use Flask static helper for CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <style>
+        /* Page-specific styles (kept small; main site styles live in css/main.css) */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f9f9f9;
+            color: #222;
+        }
+
+        .container {
+            max-width: 760px;
+            margin: 36px auto;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.06);
+            padding: 20px;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 22px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 18px;
+        }
+
+        th,
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+
+        th {
+            background: #fafafa;
+            text-align: left;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .qty-control-btn {
+            background: #f0f0f0;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 0 8px;
+            border-radius: 4px;
+            font-size: 1em;
+            line-height: 1;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .checkout-link {
+            background: #2d8f7c;
+            color: #fff;
+            padding: 10px 22px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 1em;
+            display: inline-block;
+            margin-top: 12px;
+        }
+
+        .checkout-link:hover {
+            background: #218c6e;
+        }
+
+        .cart-empty {
+            color: #e74c3c;
+            text-align: center;
+            font-size: 1.1em;
+            margin: 30px 0;
+        }
+
+        .discount-info {
+            background: #f1c40f1a;
+            color: #b8860b;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 0.98em;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .cod-available {
+            background: #e7f7ee;
+            color: #218c6e;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            font-size: 0.96em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .remove-btn {
+            background: #e74c3c;
+            color: #fff;
+            border: none;
+            padding: 6px 9px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .small-muted {
+            font-size: 0.95em;
+            color: #666;
+        }
+
+        .total-row td {
+            font-weight: 700;
+            font-size: 1.02em;
+            padding-top: 12px;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                margin: 12px;
+                padding: 14px;
+            }
+
+            th,
+            td {
+                padding: 8px 6px;
+            }
+
+            .checkout-link {
+                width: 100%;
+                text-align: center;
+                display: block;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container" role="main" aria-labelledby="cart-heading">
+        <h2 id="cart-heading">Your Cart</h2>
+
+        <div id="discountPercentInfo" class="discount-info" style="display:none;" aria-live="polite"></div>
+
+        <div id="cartSection" aria-live="polite"></div>
+
+        <div class="cod-available" aria-hidden="false">
+            <span>✔ Cash on Delivery Available</span>
+            <span style="font-size:0.95em; color:#218c6e;">Pay at your doorstep</span>
+        </div>
+
+        <a id="checkoutBtnLink" class="checkout-link" href="{{ url_for('checkout') }}">Proceed to Checkout</a>
+    </div>
+
+    <script>
+        // Use relative API base so code works on Render and locally
+        const API = "/api";
+
+        // Helper: convert server image paths like "images/brand/file.jpg" to /static/...
+        function toStaticUrl(url) {
+            const placeholder = "{{ url_for('static', filename='images/placeholder.jpg') }}";
+            if (!url) return placeholder;
+            if (typeof url !== 'string') return placeholder;
+            if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) return url;
+            return `/static/${url}`;
+        }
+
+        // Local cart handling using localStorage
+        let cart = JSON.parse(localStorage.getItem('cart') || "[]");
+        const cartSection = document.getElementById('cartSection');
+        const discountInfoDiv = document.getElementById('discountPercentInfo');
+        let checkoutDiscountPercent = 0;
+
+        // Fetch the discount percent from the server
+        async function fetchDiscountPercent() {
+            try {
+                const r = await fetch(`${API}/settings/checkout_discount`);
+                if (!r.ok) {
+                    checkoutDiscountPercent = 0;
+                    discountInfoDiv.style.display = "none";
+                    return;
+                }
+                const js = await r.json();
+                checkoutDiscountPercent = parseFloat(js.percent) || 0;
+                if (checkoutDiscountPercent > 0) {
+                    discountInfoDiv.style.display = "block";
+                    discountInfoDiv.innerHTML = `<span>🌟 <b>Special Offer:</b> <span style="color:#27ae60">${checkoutDiscountPercent}% OFF</span> applied automatically at checkout!</span>`;
+                } else {
+                    discountInfoDiv.style.display = "none";
+                }
+            } catch (e) {
+                console.warn("Failed to load discount percent", e);
+                checkoutDiscountPercent = 0;
+                discountInfoDiv.style.display = "none";
+            }
+        }
+
+        // Render cart contents
+        function renderCart() {
+            cart = JSON.parse(localStorage.getItem('cart') || "[]"); // refresh
+            if (!cart || !cart.length) {
+                cartSection.innerHTML = '<div class="cart-empty">Your cart is empty.</div>';
+                document.getElementById('checkoutBtnLink').style.display = "none";
+                discountInfoDiv.style.display = "none";
+                return;
+            }
+
+            let rows = '';
+            for (let i = 0; i < cart.length; i++) {
+                const item = cart[i];
+                const price = parseFloat(item.price || 0);
+                const qty = parseInt(item.quantity || item.qty || 0, 10);
+                const discounted = price * (1 - checkoutDiscountPercent / 100);
+                const totalPrice = (price * qty).toFixed(2);
+                const totalDiscounted = (discounted * qty).toFixed(2);
+                rows += `
+                    <tr>
+                        <td>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <img src="${toStaticUrl(item.image || item.image_url || '')}" alt="${(item.title || item.name) || ''}" style="width:64px;height:64px;object-fit:contain;border-radius:6px;background:#fff;border:1px solid #eee;">
+                                <div>
+                                    <div style="font-weight:600;">${item.title || item.name || ''}</div>
+                                    <div class="small-muted">${item.brand || ''}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="text-align:center;">
+                            <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                <button class="qty-control-btn" onclick="updateQuantity(${i}, -1)" aria-label="Decrease quantity">-</button>
+                                <span>${qty}</span>
+                                <button class="qty-control-btn" onclick="updateQuantity(${i}, 1)" aria-label="Increase quantity">+</button>
+                            </div>
+                        </td>
+                        <td>$${totalPrice}</td>
+                        <td>
+                            <span style="color:#27ae60;font-weight:bold;">$${totalDiscounted}</span>
+                            <div class="small-muted">(-${checkoutDiscountPercent}% Off)</div>
+                        </td>
+                        <td><button class="remove-btn" onclick="removeCartItem(${i})" aria-label="Remove item">✕</button></td>
+                    </tr>
+                `;
+            }
+
+            const subtotal = cart.reduce((sum, i) => sum + (parseFloat(i.price || 0) * (i.quantity || i.qty || 0)), 0);
+            const totalAfterDiscount = cart.reduce((sum, i) => sum + (parseFloat(i.price || 0) * (1 - checkoutDiscountPercent / 100) * (i.quantity || i.qty || 0)), 0);
+
+            const table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:48%;">Product</th>
+                            <th style="width:16%;">Qty</th>
+                            <th style="width:18%;">Price</th>
+                            <th style="width:18%;">Discounted</th>
+                            <th style="width:8%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="2"></td>
+                            <td class="small-muted">Subtotal:</td>
+                            <td style="font-weight:bold;">$${subtotal.toFixed(2)}</td>
+                            <td></td>
+                        </tr>
+                        <tr class="total-row">
+                            <td colspan="2"></td>
+                            <td class="small-muted">Total:</td>
+                            <td style="font-weight:bold;color:#27ae60;">$${totalAfterDiscount.toFixed(2)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+
+            cartSection.innerHTML = table;
+            document.getElementById('checkoutBtnLink').style.display = "inline-block";
+        }
+
+        // Remove an item
+        function removeCartItem(idx) {
+            let current = JSON.parse(localStorage.getItem('cart') || "[]");
+            if (!current || idx < 0 || idx >= current.length) return;
+            current.splice(idx, 1);
+            localStorage.setItem('cart', JSON.stringify(current));
+            renderCart();
+        }
+
+        // Update quantity
+        function updateQuantity(idx, change) {
+            let current = JSON.parse(localStorage.getItem('cart') || "[]");
+            if (!current || idx < 0 || idx >= current.length) return;
+            const curQty = parseInt(current[idx].quantity || current[idx].qty || 0, 10);
+            const newQty = curQty + change;
+            if (newQty > 0) {
+                current[idx].quantity = newQty;
+            } else {
+                current.splice(idx, 1);
+            }
+            localStorage.setItem('cart', JSON.stringify(current));
+            renderCart();
+        }
+
+        // Log order attempt to backend (best-effort)
+        async function logOrderAttempt(item, status = "Carted") {
+            try {
+                await fetch(`${API}/order-attempts`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: "",
+                        product: item.title || item.name || "",
+                        qty: item.quantity || item.qty || 1,
+                        status
+                    })
+                });
+            } catch (e) {
+                // Ignore logging failures
+            }
+        }
+
+        // On load: fetch discount and render
+        (async function () {
+            await fetchDiscountPercent();
+
+            // Log order attempts for existing cart items (best-effort)
+            const current = JSON.parse(localStorage.getItem('cart') || "[]");
+            for (const item of current) {
+                logOrderAttempt(item, "Carted");
+            }
+
+            renderCart();
+        })();
+
+        // When user clicks "Proceed to Checkout" they are taken to the checkout route
+        // The checkout page (template / route) will use the cart in localStorage and post to /api/orders
+
+        // Optional: update the discount banner periodically
+        setInterval(fetchDiscountPercent, 30000);
+    </script>
+</body>
+
+</html>

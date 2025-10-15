@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WPerfumes — Home</title>
+
+    <!-- Main stylesheet (use Flask url_for to resolve correctly when rendered) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <style>
+        /* Small page-specific tweaks */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .hero-inner {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        /* Make homepage sections area visually separate */
+        #homepage-sections {
+            margin-top: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Announcement / marquee -->
+    <div id="announcement" role="region" aria-live="polite">
+        <div class="announcement-scroller">
+            <div class="announcement-item">FREE shipping on orders over $100</div>
+            <div class="announcement-item">Authentic fragrances with 30-day returns</div>
+            <div class="announcement-item">Gift wrapping available</div>
+        </div>
+    </div>
+
+    <!-- Blinking offer banner (controlled by JS) -->
+    <div id="blinking-offer" class="blinking-offer" style="display:none;"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <a class="brand-logo" href="{{ url_for('index') }}">WPerfumes</a>
+            <ul class="nav-tabs" role="menubar" aria-label="Site Menu">
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('men') }}">Men</a></li>
+                <li><a href="{{ url_for('women') }}">Women</a></li>
+                <li><a href="{{ url_for('beauty') }}">Beauty</a></li>
+
+            </ul>
+        </div>
+
+        <div class="navbar-center">
+            <div class="search-container">
+                <input id="siteSearchInput" type="text" placeholder="Search for scents, notes, or brands..."
+                    aria-label="Search">
+            </div>
+        </div>
+
+        <div class="navbar-right">
+            <a id="cartBtn" class="cart-btn" href="#" aria-label="Open cart">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61l1.38-8.19H6"></path>
+                </svg>
+                <span>Cart</span>
+                <span id="cartCountBadge" class="cart-count-badge" style="display:none;">0</span>
+            </a>
+
+            <div class="login-menu-container">
+                <a href="{{ url_for('login_page') }}" class="login-btn">Login</a>
+                <div class="login-submenu">
+                    <a href="{{ url_for('signup') }}" class="signup-btn">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section id="hero">
+        <div class="hero-inner container">
+            <div id="hero-audio-player">
+                <button id="heroAudioMuteBtn" aria-label="Toggle hero audio">
+                    <span id="heroAudioMuteIcon">🔊</span>
+                </button>
+                <!-- Hidden audio element; source file must exist in static folder -->
+                <audio id="heroAudio" loop>
+                    <source src="{{ url_for('static', filename='audio/hero-loop.mp3') }}" type="audio/mpeg">
+                </audio>
+            </div>
+
+            <h2>Handpicked Luxury Fragrances</h2>
+            <p>Explore our carefully curated collection of signature and designer scents — free delivery over $100.</p>
+        </div>
+    </section>
+
+    <!-- Content: homepage sections will be injected by main.js -->
+    <main id="homepage-sections" class="container" role="main" aria-live="polite">
+        <!-- loadHomepageSections() in main.js will populate this element -->
+        <div style="padding:18px;text-align:center;color:#888;">Loading featured collections...</div>
+    </main>
+
+    <!-- Dynamic Top Picks by lifestyle area (main.js may inject to other sections) -->
+    <section id="dynamicTopPicksByLifestyleContainer" class="container" style="margin-top:18px;"></section>
+
+    <!-- Similar / testimonial & footer -->
+    <section id="testimonials">
+        <h3>What our customers say</h3>
+        <p>"Exquisite selection — fast delivery and authentic products." — A satisfied customer</p>
+    </section>
+
+    <!-- Footer -->
+    <footer id="footer">
+        <div style="max-width:1200px;margin:0 auto;padding:14px;">
+            <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;">
+                <div style="min-width:220px;">
+                    <strong>WPerfumes</strong><br />
+                    <small>Authentic perfumes, curated with care.</small>
+                </div>
+                <div style="text-align:right;min-width:220px;">
+                    <small>Contact: support@wperfumes.com</small><br />
+                    <small>&copy; 2025 WPerfumes</small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Product detail overlay (used by main.js) -->
+    <div id="productDetailOverlay" aria-hidden="true">
+        <button id="overlayCloseBtn" title="Close overlay">✕</button>
+        <div id="overlayContent"></div>
+    </div>
+
+    <!-- Cart Modal -->
+    <div id="cartModalBg" class="cart-modal-bg" aria-hidden="true">
+        <div class="cart-modal-content" id="cartModal" role="dialog" aria-modal="true" aria-label="Cart">
+            <button id="cartModalCloseBtn" class="cart-modal-close" aria-label="Close cart">✕</button>
+            <div class="cart-modal-header">
+                <div>Shopping Cart</div>
+            </div>
+
+            <div id="cartDiscountInfo" class="discount-info" style="display:none;"></div>
+
+            <div id="cartList" class="cart-list" aria-live="polite"></div>
+
+            <div class="cart-modal-footer">
+                <div id="cartModalTotal" class="cart-modal-total"></div>
+                <div style="flex:1"></div>
+                <button id="openCheckoutFromCart" class="btn-primary"
+                    style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkoutModalBg" class="cart-modal-bg" aria-hidden="true">
+        <div id="checkoutModalContent" role="dialog" aria-modal="true" aria-label="Checkout">
+            <button id="checkoutModalCloseBtn" aria-label="Close checkout">✕</button>
+
+            <h2>Checkout</h2>
+
+            <div id="checkoutDiscountInfo" class="discount-info" style="display:none;"></div>
+
+            <div id="cartSection" aria-live="polite"></div>
+
+            <div id="paymentSelectWrapper" style="display:block;margin-top:12px;">
+                <label class="payment-dropdown-label">Select Payment Method</label>
+                <select id="paymentSelect" class="payment-select">
+                    <option>Cash on Delivery</option>
+                    <option>Visa/Mastercard</option>
+                </select>
+            </div>
+
+            <div id="promoWrapper" style="margin-top:12px;">
+                <label for="promoInput">Promo code</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input id="promoInput" type="text" placeholder="Enter promo code"
+                        style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    <button id="applyPromoBtn" type="button"
+                        style="padding:8px 10px;border-radius:6px;border:none;background:#2d8f7c;color:white;cursor:pointer;">Apply</button>
+                </div>
+                <div id="promoMsg" style="margin-top:8px;color:#666;font-size:0.95em;"></div>
+            </div>
+
+            <form id="orderForm" style="margin-top:12px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <input id="customer" name="customer" type="text" placeholder="Full name" required
+                        style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    <input id="email" name="email" type="email" placeholder="Email" required
+                        style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    <input id="phone" name="phone" type="text" placeholder="Phone"
+                        style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    <input id="date" name="date" type="datetime-local"
+                        style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                </div>
+
+                <div style="margin-top:10px;">
+                    <textarea id="address" name="address" rows="3" placeholder="Shipping address"
+                        style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;"></textarea>
+                </div>
+
+                <div id="orderMsg" style="margin-top:10px;"></div>
+
+                <div class="form-buttons" style="margin-top:12px;">
+                    <button id="checkoutBtn" type="submit"
+                        style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Place
+                        Order</button>
+                    <button id="buyNowBtn" type="button"
+                        style="background:#27ae60;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Buy
+                        Now</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Order confirmation modal -->
+    <div id="orderConfirmationModalBg" class="cart-modal-bg" style="display:none;">
+        <div id="orderConfirmationModalContent" class="cart-modal-content" style="max-width:400px;text-align:center;">
+            <button id="orderConfirmationModalCloseBtn" title="Close"
+                style="position:absolute;top:10px;right:18px;font-size:1.5em;background:none;border:none;cursor:pointer;">&times;</button>
+            <div id="orderConfirmationMsg" style="margin:40px 0 15px 0;"></div>
+        </div>
+    </div>
+
+    <!-- Dynamic Top Picks container (optional: also used by men.html previously) -->
+    <div id="dynamicTopPicksByLifestyleContainer" style="display:none;"></div>
+
+    <!-- Placeholder for homepage sections rendering done by main.js -->
+    <div id="homepage-sections"></div>
+
+    <!-- Small compatibility shim before main.js loads:
+         - Rewrites fetch() calls that hardcode "http://127.0.0.1:5000" to use relative paths.
+         This preserves existing main.js behavior without editing that file.
+    -->
+    <script>
+        (function () {
+            const ORIGINAL_FETCH = window.fetch.bind(window);
+            window.fetch = function (input, init) {
+                try {
+                    // If input is a Request object, derive URL
+                    if (input && typeof input === 'object' && input.url) {
+                        let newUrl = input.url;
+                        if (typeof newUrl === 'string' && newUrl.indexOf('http://127.0.0.1:5000') === 0) {
+                            newUrl = newUrl.replace('http://127.0.0.1:5000', '');
+                            input = new Request(newUrl, input);
+                        }
+                    } else if (typeof input === 'string') {
+                        if (input.indexOf('http://127.0.0.1:5000') === 0) {
+                            input = input.replace('http://127.0.0.1:5000', '');
+                        }
+                    }
+                } catch (e) {
+                    // If something goes wrong, fall through to default fetch
+                }
+                return ORIGINAL_FETCH(input, init);
+            };
+        })();
+    </script>
+
+    <!-- Load main.js (use Flask url_for) -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <!-- Small glue: open checkout modal from cart button inside cart modal -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const openCheckoutBtn = document.getElementById('openCheckoutFromCart');
+            if (openCheckoutBtn) {
+                openCheckoutBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    // Hide cart modal and open checkout modal
+                    const cartBg = document.getElementById('cartModalBg');
+                    if (cartBg) cartBg.style.display = 'none';
+                    const checkoutBg = document.getElementById('checkoutModalBg');
+                    if (checkoutBg) checkoutBg.style.display = 'flex';
+                });
+            }
+
+            // Ensure overlay close button exists and binds (main.js also binds it)
+            const overlayClose = document.getElementById('overlayCloseBtn');
+            if (overlayClose) overlayClose.addEventListener('click', function () {
+                const overlay = document.getElementById('productDetailOverlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+
+</html>

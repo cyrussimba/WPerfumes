@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPerfumes - Women's Fragrances</title>
+    <style>
+        :root {
+            --light-green: #c8e6c9;
+            --light-brown: #d7ccc8;
+            --light-silver: #e0e0e0;
+            --white-bg: #ffffff;
+            --dark-text: #3e2723;
+            --dark-accent: #000000;
+            --footer-link-color: #5d4037;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Georgia', serif;
+            background-color: var(--white-bg);
+            color: var(--dark-text);
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--light-brown);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--light-silver);
+        }
+
+        .brand-logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--dark-text);
+            text-decoration: none;
+            margin-right: 30px;
+            letter-spacing: 1px;
+        }
+
+        .nav-tabs {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+        }
+
+        .nav-tabs li a {
+            text-decoration: none;
+            color: var(--dark-text);
+            padding: 10px 18px;
+            display: block;
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .nav-tabs li a:hover {
+            background-color: var(--light-green);
+            color: var(--dark-accent);
+        }
+
+        .navbar-center {
+            flex-grow: 1;
+            max-width: 450px;
+            margin: 0 20px;
+        }
+
+        .search-container input[type="text"] {
+            width: 100%;
+            padding: 8px 18px;
+            border: 1px solid var(--light-silver);
+            background-color: var(--light-silver);
+            border-radius: 20px;
+            outline: none;
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar-right a {
+            text-decoration: none;
+            color: var(--dark-text);
+            padding: 8px 12px;
+            margin-left: 15px;
+            border: 1px solid var(--dark-text);
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .navbar-right .login-btn {
+            background-color: var(--dark-text);
+            color: var(--white-bg);
+            border-color: var(--dark-text);
+        }
+
+        .navbar-right .login-btn:hover,
+        .navbar-right .cart-btn:hover {
+            background-color: var(--light-green);
+            color: var(--dark-accent);
+            border-color: var(--light-green);
+        }
+
+        .women-content {
+            padding: 50px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .women-content h1 {
+            color: var(--dark-text);
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .brand-slider-container {
+            position: relative;
+            margin-top: 40px;
+        }
+
+        .brand-slider {
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .brand-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            transition: transform 0.6s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .brand-card {
+            background-color: var(--light-brown);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .brand-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            background-color: var(--light-green);
+        }
+
+        .brand-card a {
+            text-decoration: none;
+            color: var(--dark-text);
+            font-size: 1.2em;
+            font-weight: bold;
+            display: block;
+            padding: 20px 0 0 0;
+        }
+
+        .brand-logo-img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        }
+
+        .other-card {
+            background-color: var(--light-silver);
+            border: 2px dashed var(--dark-text);
+        }
+
+        .other-card:hover {
+            transform: none;
+            box-shadow: none;
+            background-color: var(--light-silver);
+        }
+
+        .slider-nav {
+            text-align: center;
+            margin-top: 18px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-dots {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .slider-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 100%;
+            background: #e0e0e0;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .slider-dot.active {
+            background: var(--light-green);
+            border: 2px solid var(--dark-text);
+        }
+
+        .slider-arrow {
+            font-size: 24px;
+            color: var(--dark-text);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0 10px;
+            transition: color 0.2s;
+        }
+
+        .slider-arrow:active,
+        .slider-arrow:hover {
+            color: var(--footer-link-color);
+        }
+
+        .slider-page-info {
+            font-size: 15px;
+            color: var(--footer-link-color);
+            margin-left: 8px;
+            font-weight: bold;
+        }
+
+        .see-all-link {
+            font-size: 15px;
+            margin-left: 16px;
+            color: var(--dark-accent);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .footer {
+            background-color: var(--light-brown);
+            color: var(--dark-text);
+            padding: 40px 20px 20px;
+            border-top: 1px solid var(--light-silver);
+        }
+
+        .footer-container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: left;
+            flex-wrap: wrap;
+        }
+
+        .footer-section {
+            flex: 1;
+            min-width: 250px;
+            margin-bottom: 20px;
+        }
+
+        .footer-section h4 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--dark-accent);
+        }
+
+        .social-icons a {
+            font-size: 24px;
+            color: var(--dark-text);
+            text-decoration: none;
+            margin-right: 15px;
+            transition: color 0.3s;
+        }
+
+        .payment-methods {
+            margin-top: 20px;
+            font-size: 28px;
+        }
+
+        .payment-methods span {
+            margin-right: 10px;
+            color: var(--footer-link-color);
+        }
+
+        .footer-section p,
+        .footer-section a {
+            color: var(--footer-link-color);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(62, 39, 35, 0.1);
+            font-size: 12px;
+            color: var(--footer-link-color);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <a href="{{ url_for('index') }}" class="brand-logo">WPerfumes</a>
+            <ul class="nav-tabs">
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('men') }}">Men</a></li>
+                <li><a href="{{ url_for('women') }}">Women</a></li>
+                <li><a href="{{ url_for('beauty') }}">Beauty</a></li>
+            </ul>
+        </div>
+        <div class="navbar-center">
+            <div class="search-container"><input type="text" placeholder="Search for scents, notes, or brands..."></div>
+        </div>
+        <div class="navbar-right"><a href="cart.html" class="cart-btn">🛍️ Cart</a><a href="#"
+                class="login-btn">Login</a></div>
+    </nav>
+    <main class="women-content">
+        <h1>Women's Fragrance Brands</h1>
+        <p>Discover enchanting perfumes from the most luxurious and sought-after fragrance designers for women. Click a
+            brand to see its full product range.</p>
+        <section class="brand-slider-container">
+            <div class="brand-slider">
+                <div class="brand-grid" id="womenBrandGrid"></div>
+            </div>
+            <div class="slider-nav">
+                <button class="slider-arrow" id="prevBtn">&#8592;</button>
+                <div class="slider-dots" id="sliderDots"></div>
+                <span class="slider-page-info" id="sliderPageInfo"></span>
+                <button class="slider-arrow" id="nextBtn">&#8594;</button>
+                <a class="see-all-link" href="#" id="seeAllLink">See All</a>
+            </div>
+        </section>
+    </main>
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-section">
+                <h4>Connect With Us</h4>
+                <div class="social-icons"><a href="#" title="Facebook">📘</a><a href="#" title="Instagram">📸</a><a
+                        href="#" title="Twitter">🐦</a><a href="#" title="Pinterest">📌</a></div>
+                <h4 style="margin-top: 25px;">Payment Methods</h4>
+                <div class="payment-methods"><span>VISA</span><span>MC</span><span>Pay</span><span>PPL</span></div>
+            </div>
+            <div class="footer-section">
+                <h4>Contact Us</h4>
+                <p>Email: <a href="mailto:support@wperfumes.com">support@wperfumes.com</a></p>
+                <p>Phone: (555) 123-4567</p>
+                <p>Address: 101 Fragrance Lane, Scent City, 90210</p><a href="#">Customer Support</a><a href="#">FAQ</a>
+            </div>
+            <div class="footer-section">
+                <h4>Our Company</h4><a href="#">About WPerfumes</a><a href="#">Our Vision</a><a href="#">Our
+                    Mission</a><a href="#">Careers</a><a href="#">Privacy Policy</a>
+            </div>
+        </div>
+        <div class="footer-bottom">&copy; 2025 WPerfumes. All rights reserved. | Designed with elegance.</div>
+    </footer>
+    <script>
+        let brands = [];
+        let currentPage = 0;
+        const pageSize = 10;
+        let autoSlideInterval = null;
+        let totalPages = 1;
+        let showingAll = false;
+
+        function renderBrands(page) {
+            const brandGrid = document.getElementById('womenBrandGrid');
+            brandGrid.innerHTML = '';
+            let pageBrands;
+            if (showingAll) {
+                pageBrands = brands;
+            } else {
+                const startIdx = page * pageSize;
+                const endIdx = startIdx + pageSize;
+                pageBrands = brands.slice(startIdx, endIdx);
+            }
+            pageBrands.forEach(brand => {
+                brandGrid.innerHTML += `
+                    <div class="brand-card" id="${brand.name.replace(/ /g, '_')}">
+                        <a href="/brand?brand=${encodeURIComponent(brand.name)}">
+    <img src="${brand.logo}" alt="${brand.name} Logo" class="brand-logo-img">
+    ${brand.name}
+</a>
+                    </div>
+                `;
+            });
+            if (showingAll) {
+                brandGrid.innerHTML += `<div class="brand-card other-card">
+                    <a href="#">Other (Future Brands)</a>
+                </div>`;
+            }
+        }
+
+        function renderDots() {
+            const sliderDots = document.getElementById('sliderDots');
+            sliderDots.innerHTML = '';
+            if (!showingAll) {
+                for (let i = 0; i < totalPages; i++) {
+                    sliderDots.innerHTML += `<span class="slider-dot${i === currentPage ? ' active' : ''}" data-page="${i}"></span>`;
+                }
+            }
+        }
+
+        function renderPageInfo() {
+            const info = document.getElementById('sliderPageInfo');
+            if (showingAll) {
+                info.textContent = `All (${brands.length})`;
+            } else {
+                info.textContent = `Page ${currentPage + 1} of ${totalPages}`;
+            }
+        }
+
+        function slideToPage(page) {
+            currentPage = page;
+            renderBrands(currentPage);
+            renderDots();
+            renderPageInfo();
+        }
+
+        function nextPage() {
+            if (!showingAll) {
+                currentPage = (currentPage + 1) % totalPages;
+                slideToPage(currentPage);
+            }
+        }
+
+        function prevPage() {
+            if (!showingAll) {
+                currentPage = (currentPage - 1 + totalPages) % totalPages;
+                slideToPage(currentPage);
+            }
+        }
+
+        function startAutoSlide() {
+            if (autoSlideInterval) clearInterval(autoSlideInterval);
+            if (!showingAll) {
+                autoSlideInterval = setInterval(nextPage, 15000);
+            }
+        }
+
+        function stopAutoSlide() {
+            if (autoSlideInterval) clearInterval(autoSlideInterval);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('http://127.0.0.1:5000/api/brands')
+                .then(res => res.json())
+                .then(data => {
+                    brands = data;
+                    totalPages = Math.ceil(brands.length / pageSize);
+                    slideToPage(0);
+                    startAutoSlide();
+                });
+
+            document.getElementById('prevBtn').onclick = () => {
+                prevPage();
+                startAutoSlide();
+            };
+            document.getElementById('nextBtn').onclick = () => {
+                nextPage();
+                startAutoSlide();
+            };
+            document.getElementById('sliderDots').onclick = (e) => {
+                if (e.target.classList.contains('slider-dot')) {
+                    const page = parseInt(e.target.getAttribute('data-page'));
+                    slideToPage(page);
+                    startAutoSlide();
+                }
+            };
+            document.getElementById('seeAllLink').onclick = (e) => {
+                e.preventDefault();
+                showingAll = !showingAll;
+                stopAutoSlide();
+                slideToPage(0);
+                document.getElementById('seeAllLink').textContent = showingAll ? "Show Paged" : "See All";
+            };
+        });
+    </script>
+</body>
+
+</html>

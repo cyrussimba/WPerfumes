@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="brandTitle">Brand Fragrances</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        :root {
+            --light-brown: #d7ccc8;
+            --dark-text: #3e2723;
+            --light-silver: #e0e0e0;
+            --white-bg: #ffffff;
+            --dark-accent: #000000;
+            --footer-link-color: #5d4037;
+            --light-green: #c8e6c9;
+            --sale-red: #e53935;
+            --primary-white: #ffffff;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background-color: var(--white-bg);
+            color: var(--dark-text);
+            margin: 0;
+        }
+
+        .navbar {
+            background-color: var(--light-brown);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--light-silver);
+        }
+
+        .brand-logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--dark-text);
+            text-decoration: none;
+            letter-spacing: 1px;
+            margin-right: 30px;
+        }
+
+        .nav-tabs {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+        }
+
+        .nav-tabs li a {
+            text-decoration: none;
+            color: var(--dark-text);
+            padding: 10px 18px;
+            display: block;
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .nav-tabs li a:hover {
+            background-color: var(--light-green);
+            color: var(--dark-accent);
+        }
+
+        .navbar-center {
+            flex-grow: 1;
+            max-width: 450px;
+            margin: 0 20px;
+        }
+
+        .search-container input[type="text"] {
+            width: 100%;
+            padding: 8px 18px;
+            border: 1px solid var(--light-silver);
+            background-color: var(--light-silver);
+            border-radius: 20px;
+            outline: none;
+            font-size: 14px;
+            color: var(--dark-text);
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .content-container {
+            max-width: 1200px;
+            margin: 15px auto 15px auto !important;
+            padding: 0 10px !important;
+        }
+
+        h1#brandHeader {
+            font-size: 1.5em !important;
+            margin-bottom: 15px !important;
+            padding-bottom: 5px !important;
+        }
+
+        #brandDesc {
+            margin-bottom: 10px !important;
+            font-size: 1em !important;
+        }
+
+        .discount-info {
+            background: #f1c40f1a;
+            color: #b8860b;
+            border-radius: 4px;
+            padding: 7px 10px;
+            font-size: 1em;
+            font-weight: 500;
+            margin-bottom: 14px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            max-width: 480px;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 18px !important;
+        }
+
+        .product-card {
+            border: 1px solid var(--light-silver);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .product-image-box {
+            width: 100%;
+            max-width: 100px;
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f9f9f9;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            overflow: visible;
+            position: relative;
+        }
+
+        .product-card img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: none;
+            display: block;
+            transition: transform 0.3s ease-in-out, z-index 0s 0.3s;
+        }
+
+        .product-card:hover .product-image-box img {
+            transform: scale(3) translate(0, 10%);
+            z-index: 100;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin-left: -50px;
+            margin-top: -50px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--light-silver);
+            padding: 5px;
+            background-color: var(--white-bg);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .product-card a {
+            text-decoration: none;
+            color: var(--dark-text);
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .product-card h3 {
+            font-size: 1.2em;
+            margin: 5px 0 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .product-card .price {
+            font-weight: bold;
+            color: #cc0000;
+            margin-top: 5px;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .product-card .discounted-price {
+            font-weight: bold;
+            color: #27ae60;
+            font-size: 1.08em;
+            margin-top: 2px;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .product-card .product-actions {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .product-actions .action-button {
+            flex-grow: 1;
+            padding: 8px 5px;
+            font-size: 0.9em;
+            cursor: pointer;
+            border: 1px solid var(--dark-text);
+            border-radius: 4px;
+            background-color: var(--white-bg);
+            color: var(--dark-text);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .product-actions .action-button:hover {
+            background-color: var(--light-green);
+            border-color: var(--light-green);
+            color: var(--dark-accent);
+        }
+
+        .product-card a:hover h3 {
+            text-decoration: underline;
+        }
+
+        .sold-out {
+            color: red;
+            font-weight: bold;
+            margin-top: 5px;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer {
+            background-color: var(--light-brown);
+            color: var(--dark-text);
+            padding: 26px 12px 10px !important;
+            border-top: 1px solid var(--light-silver);
+        }
+
+        .footer-container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: left;
+            flex-wrap: wrap;
+        }
+
+        .footer-section {
+            flex: 1;
+            min-width: 250px;
+            margin-bottom: 20px;
+        }
+
+        .footer-section h4 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--dark-accent);
+        }
+
+        .social-icons a {
+            font-size: 24px;
+            color: var(--dark-text);
+            text-decoration: none;
+            margin-right: 15px;
+            transition: color 0.3s;
+        }
+
+        .payment-methods {
+            margin-top: 20px;
+            font-size: 28px;
+        }
+
+        .payment-methods span {
+            margin-right: 10px;
+            color: var(--footer-link-color);
+        }
+
+        .footer-section p,
+        .footer-section a {
+            color: var(--footer-link-color);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(62, 39, 35, 0.1);
+            font-size: 12px;
+            color: var(--footer-link-color);
+        }
+
+        @media (max-width: 700px) {
+            .content-container {
+                margin: 7px auto 7px auto !important;
+                padding: 0 4px !important;
+            }
+
+            h1#brandHeader {
+                font-size: 1.1em !important;
+                margin-bottom: 7px !important;
+                padding-bottom: 2px !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <a href="{{ url_for('index') }}" class="brand-logo">WPerfumes</a>
+            <ul class="nav-tabs">
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('men') }}">Men</a></li>
+                <li><a href="{{ url_for('women') }}">Women</a></li>
+                <li><a href="{{ url_for('beauty') }}">Beauty</a></li>
+            </ul>
+        </div>
+        <div class="navbar-center">
+            <div class="search-container"><input type="text" id="siteSearch"
+                    placeholder="Search for scents, notes, or brands..."></div>
+        </div>
+        <div class="navbar-right">
+            <a href="{{ url_for('cart') }}" class="cart-btn" id="cartBtn">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61l1.38-8.19H6"></path>
+                </svg>
+                <span>Cart</span>
+                <span class="cart-count-badge" id="cartCountBadge" style="display:none;">0</span>
+            </a>
+            <div class="login-menu-container">
+                <a href="{{ url_for('login_page') }}" class="login-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="7" r="4"></circle>
+                        <path d="M5.5 21a5.5 5.5 0 0 1 13 0"></path>
+                    </svg>
+                    <span>Login</span>
+                </a>
+                <div class="login-submenu">
+                    <a href="{{ url_for('signup') }}" class="signup-btn">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="content-container">
+        <h1 id="brandHeader">Brand Fragrances</h1>
+        <p id="brandDesc" style="font-style: italic;">Loading brand description...</p>
+        <div id="discountPercentInfo" class="discount-info" style="display:none;"></div>
+        <div class="product-grid" id="productGrid"></div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-section">
+                <h4>Connect With Us</h4>
+                <div class="social-icons"><a href="#" title="Facebook">📘</a><a href="#" title="Instagram">📸</a><a
+                        href="#" title="Twitter">🐦</a><a href="#" title="Pinterest">📌</a></div>
+                <h4 style="margin-top: 25px;">Payment Methods</h4>
+                <div class="payment-methods"><span>VISA</span><span>MC</span><span>Pay</span><span>PPL</span></div>
+            </div>
+            <div class="footer-section">
+                <h4>Contact Us</h4>
+                <p>Email: <a href="mailto:support@wperfumes.com">support@wperfumes.com</a></p>
+                <p>Phone: (555) 123-4567</p>
+                <p>Address: 101 Fragrance Lane, Scent City, 90210</p><a href="#">Customer Support</a><a href="#">FAQ</a>
+            </div>
+            <div class="footer-section">
+                <h4>Our Company</h4><a href="#">About WPerfumes</a><a href="#">Our Vision</a><a href="#">Our
+                    Mission</a><a href="#">Careers</a><a href="#">Privacy Policy</a>
+            </div>
+        </div>
+        <div class="footer-bottom">&copy; 2025 WPerfumes. All rights reserved. | Designed with elegance.</div>
+    </footer>
+
+    <script>
+        // Use a relative API base so the code works in dev and deployed environments
+        const API = "/api";
+
+        // Normalize image paths returned by backend so the browser can fetch them.
+        function toStaticUrl(url) {
+            // Use the Jinja-generated placeholder path as fallback
+            const placeholder = "{{ url_for('static', filename='images/placeholder.jpg') }}";
+            if (!url) return placeholder;
+            if (typeof url !== 'string') return placeholder;
+            if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) return url;
+            // backend returns e.g., 'images/creed/aventus.jpg' -> prefix with /static/
+            return `/static/${url}`;
+        }
+
+        // Fetch discount percent (safe)
+        async function fetchDiscountPercent() {
+            try {
+                const r = await fetch(`${API}/settings/checkout_discount`);
+                if (!r.ok) return 0;
+                const js = await r.json();
+                return parseFloat(js.percent) || 0;
+            } catch (err) {
+                console.warn('fetchDiscountPercent error', err);
+                return 0;
+            }
+        }
+
+        // Apply discount banner if needed
+        async function showDiscountBanner() {
+            const percent = await fetchDiscountPercent();
+            const discountInfoDiv = document.getElementById('discountPercentInfo');
+            if (!discountInfoDiv) return;
+            if (percent > 0) {
+                discountInfoDiv.style.display = "block";
+                discountInfoDiv.innerHTML = `<span>🌟 <b>Special Offer:</b> <span style="color:#27ae60">${percent}% OFF</span> applied automatically at checkout & in your cart!</span>`;
+            } else {
+                discountInfoDiv.style.display = "none";
+            }
+        }
+        showDiscountBanner();
+
+        // Utility: safely get query param
+        function getQueryParam(name) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(name) || '';
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const params = new URLSearchParams(window.location.search);
+            const brandParamRaw = params.get('brand') || '';
+            // brand parameter might be encoded or formatted with underscores, normalize for display
+            const brandForDisplay = decodeURIComponent(brandParamRaw).replace(/_/g, ' ').trim();
+            const brandForApi = encodeURIComponent((brandForDisplay || '').replace(/ /g, '_'));
+
+            document.getElementById('brandHeader').textContent = brandForDisplay ? `House of ${brandForDisplay} Fragrances` : "Brand Fragrances";
+            document.getElementById('brandTitle').textContent = brandForDisplay ? `${brandForDisplay} Fragrances` : "Brand Fragrances";
+
+            // Load brand description (from /api/brands)
+            fetch(`${API}/brands`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch brands');
+                    return res.json();
+                })
+                .then(brands => {
+                    const b = brands.find(x => x.name === brandForDisplay);
+                    if (b && b.description) {
+                        document.getElementById('brandDesc').textContent = b.description;
+                    } else {
+                        document.getElementById('brandDesc').textContent = "";
+                    }
+                })
+                .catch(err => {
+                    console.warn('Error loading brands:', err);
+                    document.getElementById('brandDesc').textContent = "";
+                });
+
+            // Load products for this brand or all if brand empty
+            // We send brand as brand_for_api (underscores) to match backend route style.
+            const productsApiPath = brandForApi ? `${API}/products/${brandForApi}` : `${API}/products`;
+            fetch(productsApiPath)
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch products');
+                    return res.json();
+                })
+                .then(products => {
+                    const grid = document.getElementById('productGrid');
+                    grid.innerHTML = '';
+                    (products || []).forEach(product => {
+                        // Calculate discounted price
+                        const priceVal = parseFloat(product.price || 0);
+                        const discounted = (window.checkoutDiscountPercent && window.checkoutDiscountPercent > 0)
+                            ? (priceVal * (1 - (window.checkoutDiscountPercent / 100)))
+                            : priceVal;
+                        // Build product link to brand_detail route with query params
+                        const productSlug = encodeURIComponent((product.title || '').replace(/ /g, '_'));
+                        const brandQuery = encodeURIComponent(brandForDisplay || product.brand || '');
+                        const productLink = `/brand_detail?brand=${brandQuery}&product=${productSlug}`;
+                        grid.innerHTML += `
+                        <div class="product-card">
+                            <a href="${productLink}" title="View ${brandForDisplay || product.brand} ${product.title}">
+                                <div class="product-image-box">
+                                    <img src="${toStaticUrl(product.image_url)}" alt="${brandForDisplay || product.brand} ${product.title}">
+                                </div>
+                                <h3>${product.title}</h3>
+                            </a>
+                            <span class="price" style="${window.checkoutDiscountPercent > 0 ? 'text-decoration: line-through; color: #888;' : ''}">$${(priceVal).toFixed(2)}</span>
+                            ${window.checkoutDiscountPercent > 0 ? `<span class="discounted-price">$${(discounted).toFixed(2)} <span style="font-size:0.92em;color:#888;">(-${window.checkoutDiscountPercent}% Off)</span></span>` : ''}
+                            ${product.quantity === 0 ? '<span class="sold-out">Sold Out</span>' : ''}
+                            <div class="product-actions">
+                                <button class="action-button add-to-cart" data-id="${product.id}" data-title="${product.title}" data-brand="${product.brand}" data-qty="1">🛒 Add to Cart</button>
+                                <button class="action-button buy-now" data-id="${product.id}">⚡ Buy Now</button>
+                            </div>
+                        </div>
+                        `;
+                    });
+                    // Attach add-to-cart handlers after rendering
+                    document.querySelectorAll('.add-to-cart').forEach(btn => {
+                        btn.addEventListener('click', function (e) {
+                            const pid = this.getAttribute('data-id');
+                            const title = this.getAttribute('data-title');
+                            const qty = parseInt(this.getAttribute('data-qty')) || 1;
+                            // Log attempt to backend (best-effort)
+                            fetch(`${API}/order-attempts`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    email: "",
+                                    product: title,
+                                    qty: qty,
+                                    status: "Carted"
+                                })
+                            }).catch(() => { /* ignore errors */ });
+
+                            let cart = JSON.parse(localStorage.getItem('cart') || "[]");
+                            const existing = cart.find(i => i.id === pid);
+                            if (existing) {
+                                existing.quantity = (existing.quantity || 0) + 1;
+                            } else {
+                                cart.push({
+                                    id: pid,
+                                    title: title,
+                                    price: parseFloat((this.closest('.product-card') && (parseFloat((this.closest('.product-card').querySelector('.price') || {}).textContent || 0))) || (product && product.price) || 0),
+                                    quantity: 1
+                                });
+                            }
+                            localStorage.setItem('cart', JSON.stringify(cart));
+                            alert(`Added ${title} to cart.`);
+                            e.stopPropagation();
+                        });
+                    });
+                })
+                .catch(err => {
+                    console.warn('Error loading products:', err);
+                });
+        });
+
+        // Keep a global discount percent for use in rendering (loaded once)
+        (async function initDiscountGlobal() {
+            window.checkoutDiscountPercent = await fetchDiscountPercent();
+        })();
+    </script>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
