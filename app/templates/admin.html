@@ -911,12 +911,43 @@
                     data.rank = parseInt(data.rank, 10);
                     try {
                         if (!tp) {
-                            await fetch(`${API}/top-picks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                            // Create top pick and auto-push it so the front-end (men.html) shows it immediately
+                            const createRes = await fetch(`${API}/top-picks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                            if (!createRes.ok) {
+                                const err = await createRes.text();
+                                alert('Save failed: ' + err);
+                            } else {
+                                // Expect backend to return created object with id
+                                let createdObj = null;
+                                try {
+                                    createdObj = await createRes.json();
+                                } catch (jsonErr) {
+                                    console.warn('Created top-pick did not return JSON or had no id', jsonErr);
+                                }
+                                // If we have an id, attempt to push automatically
+                                if (createdObj && createdObj.id) {
+                                    try {
+                                        await fetch(`${API}/top-picks/${encodeURIComponent(createdObj.id)}/push`, { method: "POST" });
+                                        // optional: notify admin that it was pushed
+                                        console.log('Top Pick created and pushed:', createdObj.id);
+                                    } catch (pushErr) {
+                                        console.warn('Top Pick created but automatic push failed', pushErr);
+                                    }
+                                } else {
+                                    // Fallback: if backend returns no JSON id, you may need to manually push from list
+                                    console.log('Top Pick created; if it does not appear on the frontend, use the Publish button in Top Picks list to push it.');
+                                }
+                            }
                         } else {
-                            await fetch(`${API}/top-picks/${encodeURIComponent(tp.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                            const res = await fetch(`${API}/top-picks/${encodeURIComponent(tp.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                            if (!res.ok) {
+                                const err = await res.text();
+                                alert('Save failed: ' + err);
+                            }
                         }
                     } catch (err) {
                         console.warn(err);
+                        alert('Network error: ' + err.message);
                     }
                     closeModal();
                     loadTopPicks();

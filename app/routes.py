@@ -543,6 +543,20 @@ WPerfumes Team
     except Exception as e:
         print(f"Error sending email: {e}")
 
+    # Notify top-picks in-memory store so its sales_count can be updated immediately.
+    # This is a best-effort, wrapped in try/except to avoid breaking order creation if top-picks module is absent.
+    try:
+        from .routes_top_picks_stub import increment_sales_for_product
+        try:
+            increment_sales_for_product(product_id, quantity)
+        except Exception as inner_exc:
+            # log but don't raise
+            print(
+                f"Warning: failed to increment top-picks sales in-memory: {inner_exc}")
+    except Exception:
+        # top-picks stub not present or import failed — that's fine
+        pass
+
     return jsonify({"success": True})
 
 

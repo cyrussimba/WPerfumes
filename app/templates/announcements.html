@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WPerfumes Announcements</title>
+    <style>
+        /* Reset and Basic Styles */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+        }
+
+        /* Announcement Bar CSS */
+        .announcement-bar {
+            background-color: #333;
+            color: #fff;
+            padding: 5px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            /* Ensure it spans the container width */
+        }
+
+        .announcement-text-container {
+            height: 20px;
+            flex-grow: 1;
+            overflow: hidden;
+            margin-right: 20px;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .announcement-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            transition: transform 0.5s ease-in-out;
+        }
+
+        .announcement-list li {
+            line-height: 20px;
+            text-align: left;
+        }
+
+        .city-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .city-selector .shop-locator {
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .city-selector .shop-locator:hover {
+            text-decoration: underline;
+        }
+
+        .city-selector label,
+        .city-selector select {
+            color: #fff;
+            background-color: #333;
+            border: 1px solid #fff;
+            padding: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="announcement-bar">
+            <div class="announcement-text-container">
+                <ul class="announcement-list">
+                    <li>Shop Now Pay Later</li>
+                    <li>Free Delivery Above $50</li>
+                    <li>10% Discount if Cash on Delivery</li>
+                    <li>Trusted Products</li>
+                    <li>Shop With Us Now</li>
+                </ul>
+            </div>
+            <div class="city-selector">
+                <a href="store-locator.html" class="shop-locator">Store Locator</a>
+                <label for="city-dropdown">Shop from:</label>
+                <select id="city-dropdown">
+                    <option value="france">France</option>
+                    <option value="singapore">Singapore</option>
+                    <option value="india">India</option>
+                    <option value="uae">UAE</option>
+                    <option value="thailand">Thailand</option>
+                    <option value="turkey">Turkey</option>
+                </select>
+            </div>
+        </header>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // City Dropdown Alert Logic
+            const cityDropdown = document.getElementById('city-dropdown');
+            if (cityDropdown) {
+                cityDropdown.addEventListener('change', () => {
+                    const selectedCountry = cityDropdown.value;
+                    alert(`You have chosen to shop from ${selectedCountry}.`);
+                });
+            }
+
+            // Announcement Text Scrolling Logic
+            const announcementList = document.querySelector('.announcement-list');
+            const items = document.querySelectorAll('.announcement-list li');
+            if (announcementList && items.length > 0) {
+                let currentIndex = 0;
+
+                function showNextMessage() {
+                    currentIndex = (currentIndex + 1) % items.length;
+                    // Each item has line-height 20px, so we translate by multiples of 20
+                    const translateYValue = -currentIndex * 20;
+                    announcementList.style.transform = `translateY(${translateYValue}px)`;
+                }
+
+                // Auto-scroll every 3 seconds
+                setInterval(showNextMessage, 3000);
+            }
+        });
+    </script>
+</body>
+
+</html>
