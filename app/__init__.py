@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -12,9 +13,42 @@ def create_app():
     app = Flask(__name__, static_folder='static', template_folder='templates')
     app.secret_key = os.environ.get('SECRET_KEY', 'SUPER_SECRET_KEY')
 
-    # Use PostgreSQL if DATABASE_URL is set, otherwise fallback to SQLite
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-        'DATABASE_URL', 'sqlite:///database.db')
+    # Choose database from environment, robustly handle Render's DATABASE_URL,
+    # and use a sensible sqlite fallback stored under instance/database.db.
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        # SQLAlchemy prefers the 'postgresql://' scheme; Render sometimes provides 'postgres://'
+        if db_url.startswith("postgres://"):
+            # Convert to SQLAlchemy-compatible scheme
+            app.logger.warning(
+                "Converting DATABASE_URL scheme from 'postgres://' to 'postgresql://'.")
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+        # Parse for safe logging (don't print credentials)
+        try:
+            parsed = urlparse(db_url)
+            host = parsed.hostname or ""
+            port = parsed.port or ""
+            dbname = parsed.path.lstrip("/") if parsed.path else ""
+            app.logger.info(
+                f"Using DATABASE_URL (host={host}, port={port}, db={dbname})")
+        except Exception:
+            app.logger.info(
+                "Using DATABASE_URL from environment (unable to parse host details)")
+
+        app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+        # Keep connections healthy for long-running processes
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
+    else:
+        # fallback to local sqlite file inside the instance/ folder (recommended path)
+        sqlite_path = os.environ.get("SQLITE_PATH", "instance/database.db")
+        app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{sqlite_path}"
+        # For sqlite, allow multi-threaded access via SQLAlchemy
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"check_same_thread": False}}
+        app.logger.info(
+            f"No DATABASE_URL provided; falling back to sqlite at: {sqlite_path}")
+
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Flask-Mail configuration (use environment variables in production)
