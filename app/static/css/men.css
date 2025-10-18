@@ -1,0 +1,846 @@
+:root {
+    --light-brown: #d7ccc8;
+    --dark-text: #3e2723;
+    --light-silver: #e0e0e0;
+    --white-bg: #ffffff;
+    --dark-accent: #000000;
+    --footer-link-color: #5d4037;
+    --light-green: #c8e6c9;
+    --filter-active: #5d4037;
+    --brand-border: #bcaaa4;
+    --slider-bg: #f5f5f5;
+    --arrow-color: #5d4037;
+    --card-gap: 10px;
+    --cards-visible: 4;
+    --animation-speed: 100s;
+    --rank-red: #cc0000;
+    --sale-red: #e53935;
+    --section-gap: 28px;
+    --primary-white: #ffffff;
+    --accent: #2d8f7c;
+}
+
+body {
+    font-family: 'Georgia', serif;
+    background-color: var(--white-bg);
+    color: var(--dark-text);
+    margin: 0;
+}
+
+/* General navbar / header styles */
+.navbar {
+    background-color: var(--light-brown);
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid var(--light-silver);
+}
+
+.brand-logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--dark-text);
+    text-decoration: none;
+    letter-spacing: 1px;
+    margin-right: 20px;
+}
+
+.nav-tabs {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+}
+
+.nav-tabs li a {
+    text-decoration: none;
+    color: var(--dark-text);
+    padding: 7px 14px;
+    display: block;
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.nav-tabs li a:hover {
+    background-color: var(--light-green);
+    color: var(--dark-accent);
+}
+
+.navbar-center {
+    flex-grow: 1;
+    max-width: 350px;
+    margin: 0 10px;
+}
+
+.search-container input[type="text"] {
+    width: 100%;
+    padding: 6px 14px;
+    border: 1px solid var(--light-silver);
+    background-color: var(--light-silver);
+    border-radius: 20px;
+    outline: none;
+    font-size: 14px;
+    color: var(--dark-text);
+}
+
+.announcement-container {
+    max-width: 1200px;
+    margin: 0 auto 8px auto;
+    width: 100%;
+    padding: 0;
+}
+
+.navbar-right {
+    display: flex;
+    align-items: center;
+}
+
+.navbar-right a {
+    text-decoration: none;
+    color: var(--dark-text);
+    padding: 6px 10px;
+    margin-left: 10px;
+    border: 1px solid var(--dark-text);
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+    font-size: 14px;
+}
+
+.navbar-right .login-btn {
+    background-color: var(--dark-text);
+    color: var(--white-bg);
+    border-color: var(--dark-text);
+}
+
+.navbar-right .login-btn:hover,
+.navbar-right .cart-btn:hover {
+    background-color: var(--light-green);
+    color: var(--dark-accent);
+    border-color: var(--light-green);
+}
+
+section,
+main.content-container {
+    margin-bottom: var(--section-gap);
+}
+
+.footer {
+    margin-top: var(--section-gap);
+}
+
+.top-picks-section {
+    /* remove gray strip background so cards sit on page bg */
+    background-color: transparent;
+    padding: 16px 0;
+    margin-top: 18px;
+    border-top: 2px solid var(--light-brown);
+}
+
+.content-container {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 0 5px;
+}
+
+.header-and-filters {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--light-brown);
+    padding-bottom: 5px;
+    margin-bottom: 18px;
+}
+
+.page-title {
+    font-size: 26px;
+    font-weight: bold;
+    color: var(--dark-accent);
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.filter-controls label {
+    font-weight: bold;
+    font-size: 13px;
+    color: var(--dark-text);
+    margin-right: 2px;
+}
+
+.filter-select {
+    padding: 6px 10px;
+    border: 1px solid var(--brand-border);
+    border-radius: 4px;
+    background-color: var(--white-bg);
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.status-message {
+    margin-bottom: 12px;
+    padding: 5px;
+    background-color: var(--light-brown);
+    border-radius: 4px;
+    color: var(--dark-accent);
+    font-style: italic;
+}
+
+.discount-info {
+    background: #f1c40f1a;
+    color: #b8860b;
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-size: 1em;
+    font-weight: 500;
+    margin-bottom: 14px;
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.brand-list-container {
+    margin-top: 10px;
+}
+
+.slide-in-reveal {
+    transform: translateY(-10px);
+    opacity: 0;
+    animation: slide-reveal 1s ease-out 1 forwards;
+}
+
+@keyframes slide-reveal {
+    0% {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.brand-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.brand-list li {
+    width: 100%;
+    height: 120px;
+    padding: 6px;
+    border: 1px solid var(--brand-border);
+    border-radius: 8px;
+    background-color: var(--white-bg);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.brand-list li:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ensure thumbnail wrappers are white (remove gray) */
+.product-image-container {
+    height: 85px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+    background-color: #ffffff;
+    border-radius: 4px;
+}
+
+.product-image {
+    max-height: 90%;
+    max-width: 90%;
+    object-fit: contain;
+    background-color: #ffffff;
+    display: block;
+}
+
+.product-name {
+    font-weight: bold;
+    font-size: 15px;
+    color: var(--dark-accent);
+    margin-bottom: 4px;
+    flex-grow: 0;
+    line-height: 1.2;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 14px;
+    padding: 4px;
+    border-top: 1px solid var(--light-silver);
+    gap: 6px;
+}
+
+.pagination-controls button {
+    background-color: var(--white-bg);
+    color: var(--dark-text);
+    border: 1px solid var(--light-brown);
+    padding: 6px 9px;
+    margin: 0 3px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.pagination-controls button.active {
+    background-color: var(--dark-text);
+    color: var(--white-bg);
+    border-color: var(--dark-text);
+    pointer-events: none;
+}
+
+#autoSlideToggle {
+    margin-left: 8px;
+    background-color: var(--light-green);
+    border-color: #a5d6a7;
+}
+
+.perfume-card {
+    position: relative;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.3s;
+}
+
+.card-rank {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    z-index: 5;
+    padding: 2px 4px;
+    background-color: var(--white-bg);
+    border: 1px solid var(--rank-red);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--rank-red);
+    line-height: 1;
+}
+
+.card-details {
+    font-size: 13px;
+    margin-top: 2px;
+    color: var(--dark-text);
+}
+
+.price-details {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.old-price {
+    color: #757575;
+    text-decoration: line-through;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.new-price {
+    color: var(--sale-red);
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.top-picks-header {
+    max-width: 1200px;
+    margin: 0 auto 10px;
+    padding: 0 10px;
+}
+
+.top-picks-header h2 {
+    font-size: 22px;
+    color: var(--dark-accent);
+    padding-bottom: 0;
+    margin: 0;
+}
+
+.card-upload-image {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin: 6px auto 6px;
+    border: 2px solid var(--brand-border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    background-color: #ffffff;
+}
+
+.slider-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 10px;
+    position: relative;
+}
+
+.slider-wrapper {
+    overflow-x: scroll;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 10px;
+}
+
+.slider-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+.slider-track {
+    display: flex;
+    width: fit-content;
+    animation: slide-scroll var(--animation-speed) linear infinite;
+}
+
+.slider-wrapper:hover .slider-track,
+.slider-wrapper:focus .slider-track {
+    animation-play-state: paused;
+}
+
+.slider-card-container {
+    display: flex;
+    min-width: 100%;
+}
+
+.perfume-card {
+    flex: 0 0 25%;
+    width: calc((100% / var(--cards-visible)) - var(--card-gap));
+    min-width: 200px;
+    max-width: 230px;
+    scroll-snap-align: start;
+    box-sizing: border-box;
+    padding: 6px;
+    margin-right: var(--card-gap);
+    text-align: center;
+    border: 1px solid var(--light-silver);
+    border-radius: 6px;
+    background-color: var(--white-bg);
+    transition: transform 0.3s;
+}
+
+.slider-track .slider-card-container:last-child .perfume-card:last-child {
+    margin-right: 0;
+}
+
+.perfume-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+.card-group-label {
+    font-size: 10px;
+    color: var(--footer-link-color);
+    margin-bottom: 2px;
+    text-transform: uppercase;
+}
+
+.card-title {
+    font-weight: bold;
+    font-size: 13px;
+    color: var(--dark-accent);
+}
+
+@keyframes slide-scroll {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.slider-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--light-silver);
+    color: var(--arrow-color);
+    padding: 8px;
+    cursor: pointer;
+    z-index: 10;
+    line-height: 1;
+    font-size: 18px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: background-color 0.2s;
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+.footer {
+    background-color: var(--light-brown);
+    color: var(--dark-text);
+    padding: 20px 10px 10px;
+    border-top: 1px solid var(--light-silver);
+    margin-top: var(--section-gap);
+}
+
+.footer-container {
+    display: flex;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: left;
+    flex-wrap: wrap;
+}
+
+.footer-section {
+    flex: 1;
+    min-width: 180px;
+    margin-bottom: 10px;
+}
+
+.footer-section h4 {
+    font-size: 15px;
+    margin-bottom: 10px;
+    color: var(--dark-accent);
+}
+
+.social-icons a {
+    font-size: 20px;
+    color: var(--dark-text);
+    text-decoration: none;
+    margin-right: 10px;
+    transition: color 0.3s;
+}
+
+.payment-methods {
+    margin-top: 12px;
+    font-size: 20px;
+}
+
+.payment-methods span {
+    margin-right: 7px;
+    color: var(--footer-link-color);
+}
+
+.footer-section p,
+.footer-section a {
+    color: var(--footer-link-color);
+    text-decoration: none;
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    transition: color 0.3s;
+}
+
+.footer-bottom {
+    text-align: center;
+    margin-top: 18px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(62, 39, 35, 0.1);
+    font-size: 11px;
+    color: var(--footer-link-color);
+}
+
+.cart-btn {
+    color: var(--dark-text);
+    padding: 6px 10px;
+    margin-left: 10px;
+    border: 1px solid var(--dark-text);
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+}
+
+.cart-count-badge {
+    background-color: var(--sale-red);
+    color: var(--primary-white);
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 10px;
+    position: relative;
+    top: -8px;
+    right: 8px;
+}
+
+.login-menu-container {
+    position: relative;
+}
+
+.login-btn {
+    background-color: var(--dark-text);
+    color: var(--primary-white);
+    border-color: var(--dark-text);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+    padding: 6px 10px;
+    margin-left: 10px;
+    border: 1px solid var(--dark-text);
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+    font-size: 14px;
+}
+
+.login-btn svg {
+    fill: var(--primary-white);
+    stroke: var(--primary-white);
+}
+
+.login-menu-container:hover .login-btn {
+    background-color: #5d4037;
+    border-color: #5d4037;
+}
+
+.login-menu-container:hover .login-btn svg {
+    fill: #c8e6c9;
+    stroke: #c8e6c9;
+}
+
+.login-submenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    background-color: var(--white-bg);
+    border: 1px solid var(--light-silver);
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 5px 0;
+    margin-top: 5px;
+    min-width: 120px;
+}
+
+.login-menu-container:hover .login-submenu {
+    display: block;
+}
+
+.login-submenu a {
+    display: block;
+    padding: 8px 15px;
+    color: var(--dark-text);
+    text-decoration: none;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    border: none;
+    margin: 0;
+}
+
+.login-submenu a:hover {
+    background-color: var(--light-green);
+}
+
+/* Updated styles for Dynamic Top Picks by Lifestyle cards
+           Layout modified so the image area is larger and description area is reduced.
+           Also: force the entire image to fit into available space (no cropping/overflow). */
+#dynamicTopPicksByLifestyleContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+    align-items: stretch;
+}
+
+.dynamic-top-pick-card {
+    height: 100%;
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.07);
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--light-silver);
+}
+
+/* Make the full image visible and replace gray with white behind image */
+.dynamic-top-pick-card .image-wrapper {
+    width: 100%;
+    height: 260px;
+    /* increased image area */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    overflow: hidden;
+}
+
+.dynamic-top-pick-card .image-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    /* shows full image without cropping */
+    object-position: center;
+    display: block;
+    background-color: #ffffff;
+}
+
+/* Reduced description area: cap height and prevent it from expanding too much */
+.dynamic-top-pick-details {
+    padding: 10px 12px;
+    flex: 0 0 70px;
+    /* reduced area for text */
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    justify-content: flex-start;
+    align-items: flex-start;
+    color: var(--dark-text);
+    overflow: hidden;
+}
+
+.dynamic-top-pick-title {
+    font-size: 0.98em;
+    font-weight: 700;
+    margin: 0;
+    color: var(--dark-accent);
+    line-height: 1.15;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dynamic-top-pick-brand {
+    font-size: 0.9em;
+    color: var(--accent);
+    margin-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dynamic-top-pick-tags {
+    font-size: 0.85em;
+    color: #666;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dynamic-top-pick-sales {
+    font-size: 0.85em;
+    color: #c88c00;
+}
+
+.dynamic-top-pick-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.9em;
+    color: #444;
+}
+
+.dynamic-top-pick-price {
+    margin-top: 2px;
+    font-weight: 700;
+    color: var(--sale-red);
+    font-size: 1.02em;
+}
+
+/* CTA area remains at bottom with compact height */
+.dynamic-top-pick-actions {
+    padding: 10px 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.03);
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fafafa;
+    height: 56px;
+}
+
+.buy-now {
+    background-color: var(--dark-text);
+    color: var(--primary-white);
+    border: none;
+    padding: 8px 12px;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95em;
+}
+
+.buy-now:hover {
+    background-color: var(--accent);
+}
+
+.wishlist-btn {
+    background: transparent;
+    border: 1px solid var(--light-silver);
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--dark-text);
+    font-weight: 600;
+}
+
+/* Adjustments for small screens — keep the image fully visible */
+@media (max-width: 520px) {
+    .dynamic-top-pick-card .image-wrapper {
+        height: 200px;
+    }
+
+    .dynamic-top-pick-card {
+        min-height: 320px;
+    }
+
+    .dynamic-top-pick-details {
+        flex: 0 0 60px;
+        padding: 8px 10px;
+    }
+
+    .dynamic-top-pick-actions {
+        height: 52px;
+        padding: 8px 10px;
+    }
+}

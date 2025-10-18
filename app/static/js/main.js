@@ -1,6 +1,6 @@
 // Updated main.js - uses relative API base and defensive DOM handling
 // Enhanced: unified button state helper and payment-selection logic so that
-// clicking "Add to Cart" shows a popup, and switching payment method (Cash on Delivery
+// clicking "Buy Now" shows a popup, and switching payment method (Cash on Delivery
 // vs Visa/Mastercard) updates "Place Order" and "Buy Now" appearance and behavior.
 //
 // Drop-in replacement for existing main.js. Paste into your repository to replace the old file.
@@ -165,7 +165,7 @@ function updateCartCount() {
 
 /*
  * When adding to cart we show a popup (checkout if available, otherwise cart modal).
- * This aligns with your request: user clicks "Add to Cart" -> sees a popup window.
+ * This aligns with your request: user clicks "Buy Now" -> sees a popup window.
  */
 function addToCart(product) {
     const id = product.id || product.title;
@@ -480,7 +480,7 @@ function createSignatureSection(products) {
                     <div class="card-name">${p.title}</div>
                     <small>$${p.price}</small>
                 </div>
-                <button class="add-cart-btn" data-product='${JSON.stringify({ ...p, id: p.id || p.title })}'>Add to Cart</button>
+                <button class="add-cart-btn" data-product='${JSON.stringify({ ...p, id: p.id || p.title })}' aria-label="Buy Now">Buy Now</button>
             </div>`;
         }
     }
@@ -513,7 +513,7 @@ function createSection(sectionKey, products) {
                     <div class="card-name">${p.title}</div>
                     <small>$${p.price}</small>
                 </div>
-                <button class="add-cart-btn" data-product='${JSON.stringify({ ...p, id: p.id || p.title })}'>Add to Cart</button>
+                <button class="add-cart-btn" data-product='${JSON.stringify({ ...p, id: p.id || p.title })}' aria-label="Buy Now">Buy Now</button>
             </div>`;
         }
     }
@@ -660,7 +660,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const cartBtn = document.getElementById('cartBtn');
     const cartModalClose = document.getElementById('cartModalCloseBtn');
     const cartModalBg = document.getElementById('cartModalBg');
-    if (cartBtn) cartBtn.addEventListener('click', (e) => { e.preventDefault(); showCartModal(); });
+
+    // NOTE: changed click behavior so link navigation is allowed when cart modal is not present.
+    // If cartModalBg exists on the page we prevent default navigation and show the in-page modal.
+    // Otherwise we allow the anchor to behave as a normal link and navigate to /cart.
+    if (cartBtn) cartBtn.addEventListener('click', (e) => {
+        const modalExists = !!document.getElementById('cartModalBg');
+        if (modalExists) {
+            e.preventDefault();
+            showCartModal();
+        } else {
+            // allow default navigation to /cart (no preventDefault)
+            // For SPA behavior, you could implement client-side navigation here.
+        }
+    });
     if (cartModalClose) cartModalClose.addEventListener('click', hideCartModal);
     if (cartModalBg) cartModalBg.addEventListener('click', (e) => { if (e.target === e.currentTarget) hideCartModal(); });
 
@@ -832,7 +845,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 promoDiscountValue = 0;
                 promoDiscountType = null;
                 saveCart();
-                renderCheckoutView();
+                renderCartModal();
                 updateCartCount();
                 hideOrderConfirmation();
                 const mPromo = document.getElementById('modal_promo_code');

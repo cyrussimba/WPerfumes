@@ -3,14 +3,25 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width,initial-scale=1" />
     <title>WPerfumes — Home</title>
 
     <!-- Main stylesheet (use Flask url_for to resolve correctly when rendered) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
+    <!-- Announcements stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/announcements.css') }}">
+
+    <!-- Hero audio small stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/hero-audio.css') }}">
+
+    <!-- Footer stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
     <style>
-        /* Small page-specific tweaks */
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -21,7 +32,6 @@
             margin: 0 auto;
         }
 
-        /* Make homepage sections area visually separate */
         #homepage-sections {
             margin-top: 18px;
         }
@@ -29,19 +39,34 @@
 </head>
 
 <body>
-    <!-- Announcement / marquee -->
-    <div id="announcement" role="region" aria-live="polite">
-        <div class="announcement-scroller">
-            <div class="announcement-item">FREE shipping on orders over $100</div>
-            <div class="announcement-item">Authentic fragrances with 30-day returns</div>
-            <div class="announcement-item">Gift wrapping available</div>
-        </div>
+    <div class="announcement-container container" aria-live="polite">
+        <header class="announcement-bar" role="region" aria-label="Site announcements">
+            <div class="announcement-text-container" aria-hidden="false">
+                <ul class="announcement-list" aria-live="off" aria-hidden="false">
+                    <li>Shop Now Pay Later</li>
+                    <li>Free Delivery Above $50</li>
+                    <li>10% Discount if Cash on Delivery</li>
+                    <li>Trusted Products</li>
+                    <li>Shop With Us Now</li>
+                </ul>
+            </div>
+            <div class="city-selector" aria-hidden="false">
+                <a href="{{ url_for('brand') }}" class="shop-locator">Store Locator</a>
+                <label for="city-dropdown" class="city-label">Shop from</label>
+                <select id="city-dropdown" aria-label="Select your shopping country">
+                    <option value="Saudi Arabia">Saudi Arabia</option>
+                    <option value="UAE">UAE</option>
+                    <option value="Kuwait">Kuwait</option>
+                    <option value="Qatar">Qatar</option>
+                    <option value="Bahrain">Bahrain</option>
+                    <option value="Turkey">Turkey</option>
+                </select>
+            </div>
+        </header>
     </div>
 
-    <!-- Blinking offer banner (controlled by JS) -->
     <div id="blinking-offer" class="blinking-offer" style="display:none;"></div>
 
-    <!-- Navbar -->
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div style="display:flex;align-items:center;gap:12px;">
             <a class="brand-logo" href="{{ url_for('index') }}">WPerfumes</a>
@@ -50,8 +75,6 @@
                 <li><a href="{{ url_for('men') }}">Men</a></li>
                 <li><a href="{{ url_for('women') }}">Women</a></li>
                 <li><a href="{{ url_for('beauty') }}">Beauty</a></li>
-                <!-- explicit checkout link so users can navigate to the checkout page -->
-                <li><a href="{{ url_for('checkout') }}">Checkout</a></li>
             </ul>
         </div>
 
@@ -63,7 +86,6 @@
         </div>
 
         <div class="navbar-right">
-            <!-- cart button now links to the dedicated cart page -->
             <a id="cartBtn" class="cart-btn" href="{{ url_for('cart') }}" aria-label="Open cart">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -86,60 +108,111 @@
 
     <!-- Hero -->
     <section id="hero">
-        <div class="hero-inner container">
-            <div id="hero-audio-player">
-                <button id="heroAudioMuteBtn" aria-label="Toggle hero audio">
-                    <span id="heroAudioMuteIcon">🔊</span>
-                </button>
-                <!-- Hidden audio element; source file must exist in static folder -->
-                <audio id="heroAudio" loop>
-                    <source src="{{ url_for('static', filename='audio/hero-loop.mp3') }}" type="audio/mpeg">
-                </audio>
+        <div class="container">
+            <div class="hero-scaling-wrapper">
+                <div class="hero-inner">
+                    <div id="hero-audio-player">
+                        <button id="heroAudioMuteBtn" class="hero-audio-btn" aria-pressed="false"
+                            aria-label="Mute/unmute hero audio" title="Mute/unmute audio">
+                            <span id="heroAudioMuteIcon">🔈</span>
+                        </button>
+                        <audio id="heroAudio" loop preload="auto" playsinline>
+                            <source src="{{ url_for('static', filename='audio/hero1.mp3') }}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                        <span id="heroAudioStatus" class="hero-audio-status" aria-live="polite"
+                            style="display:none;"></span>
+                    </div>
+                    <h2>Handpicked Luxury Fragrances</h2>
+                    <p>Explore our carefully curated collection of signature and designer scents — free delivery over
+                        $100.</p>
+                    <a href="#signature" class="hero-cta-btn">Shop Now</a>
+                    <div class="hero-badge">Trusted by 10,000+ happy customers</div>
+                    <!-- Optionally, add a hero image for animation:
+                <img src="{{ url_for('static', filename='img/hero-bottle.png') }}" alt="Perfume Bottle" class="hero-main-img" />
+                -->
+                </div>
             </div>
-
-            <h2>Handpicked Luxury Fragrances</h2>
-            <p>Explore our carefully curated collection of signature and designer scents — free delivery over $100.</p>
         </div>
     </section>
 
-    <!-- Content: homepage sections will be injected by main.js -->
     <main id="homepage-sections" class="container" role="main" aria-live="polite">
-        <!-- loadHomepageSections() in main.js will populate this element -->
         <div style="padding:18px;text-align:center;color:#888;">Loading featured collections...</div>
     </main>
 
-    <!-- Dynamic Top Picks by lifestyle area (main.js may inject to other sections) -->
     <section id="dynamicTopPicksByLifestyleContainer" class="container" style="margin-top:18px;"></section>
 
-    <!-- Similar / testimonial & footer -->
     <section id="testimonials">
         <h3>What our customers say</h3>
         <p>"Exquisite selection — fast delivery and authentic products." — A satisfied customer</p>
     </section>
 
-    <!-- Footer -->
-    <footer id="footer">
-        <div style="max-width:1200px;margin:0 auto;padding:14px;">
-            <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;">
-                <div style="min-width:220px;">
-                    <strong>WPerfumes</strong><br />
-                    <small>Authentic perfumes, curated with care.</small>
+    <!-- Footer Section Imported from static file, replacing old footer -->
+    <footer class="main-footer">
+        <div class="footer-card footer-card-1">
+            <div>
+                <h3>Connect with Us</h3>
+                <div class="social-icons-row">
+                    <a href="https://www.facebook.com/wperfumes" class="social-icon"
+                        aria-label="Follow us on Facebook"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://www.instagram.com/wperfumes" class="social-icon"
+                        aria-label="Follow us on Instagram"><i class="fab fa-instagram"></i></a>
+                    <a href="https://www.tiktok.com/@wperfumes" class="social-icon" aria-label="Follow us on TikTok"><i
+                            class="fab fa-tiktok"></i></a>
+                    <a href="https://www.twitter.com/wperfumes" class="social-icon" aria-label="Follow us on Twitter"><i
+                            class="fab fa-x-twitter"></i></a>
                 </div>
-                <div style="text-align:right;min-width:220px;">
-                    <small>Contact: support@wperfumes.com</small><br />
-                    <small>&copy; 2025 WPerfumes</small>
+                <h3>Secure Payments</h3>
+                <div class="payment-icons-row">
+                    <span class="payment-icon" aria-label="Visa Payment"><i class="fab fa-cc-visa"></i></span>
+                    <span class="payment-icon" aria-label="PayPal Payment"><i class="fab fa-cc-paypal"></i></span>
+                    <span class="payment-icon" aria-label="Apple Pay"><i class="fab fa-cc-apple-pay"></i></span>
+                    <span class="payment-icon" aria-label="MasterCard Payment"><i
+                            class="fab fa-cc-mastercard"></i></span>
                 </div>
+            </div>
+            <p class="registration-number" id="copyright">
+                &copy; WPerfumes, Inc. All Rights Reserved.<br>
+                Company Reg. No: 12345678A
+            </p>
+        </div>
+        <div class="footer-card footer-card-2">
+            <h2 class="footer-logo">WPerfumes</h2>
+            <div class="footer-link-column">
+                <h4>Company</h4>
+                <a href="/about" class="footer-link">About Us</a>
+                <a href="/vision" class="footer-link">Our Vision</a>
+                <a href="/sustainability" class="footer-link">Sustainability</a>
+                <a href="/careers" class="footer-link">Careers</a>
+            </div>
+            <div class="footer-link-column">
+                <h4>Support</h4>
+                <a href="/contact" class="footer-link">Contact Us</a>
+                <a href="/faq" class="footer-link">FAQ</a>
+                <a href="/shipping-returns" class="footer-link">Shipping & Returns</a>
+                <a href="/privacy" class="footer-link">Privacy Policy</a>
+            </div>
+            <div class="footer-link-column">
+                <h4>Explore</h4>
+                <a href="/best-sellers" class="footer-link">Best Sellers</a>
+                <a href="/gift-sets" class="footer-link">Gift Sets</a>
+                <a href="/scent-finder" class="footer-link">Scent Finder Quiz</a>
+                <a href="/blog" class="footer-link">Blog & News</a>
+            </div>
+            <div class="footer-link-column">
+                <h4>Contact Info</h4>
+                <a href="mailto:support@wperfumes.com" class="footer-link">Email: support@wperfumes.com</a>
+                <a href="tel:+15551234567" class="footer-link">Phone: +1 (555) 123-4567</a>
+                <a href="/contact#address" class="footer-link">Address: 100 Scent Lane, Perfume City</a>
             </div>
         </div>
     </footer>
 
-    <!-- Product detail overlay (used by main.js) -->
     <div id="productDetailOverlay" aria-hidden="true">
         <button id="overlayCloseBtn" title="Close overlay">✕</button>
         <div id="overlayContent"></div>
     </div>
 
-    <!-- Cart Modal -->
     <div id="cartModalBg" class="cart-modal-bg" aria-hidden="true">
         <div class="cart-modal-content" id="cartModal" role="dialog" aria-modal="true" aria-label="Cart">
             <button id="cartModalCloseBtn" class="cart-modal-close" aria-label="Close cart">✕</button>
@@ -154,25 +227,17 @@
             <div class="cart-modal-footer">
                 <div id="cartModalTotal" class="cart-modal-total"></div>
                 <div style="flex:1"></div>
-                <!-- changed to an anchor linking to the dedicated checkout page.
-                     Clicking will navigate to the checkout route; if you still want the modal
-                     behavior, the small glue script below will only open the modal when the href is '#' -->
                 <a id="openCheckoutFromCart" class="btn-primary" href="{{ url_for('checkout') }}"
                     style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Checkout</a>
             </div>
         </div>
     </div>
 
-    <!-- Checkout Modal (promo moved BEFORE cart summary/totals) -->
     <div id="checkoutModalBg" class="cart-modal-bg" aria-hidden="true">
         <div id="checkoutModalContent" role="dialog" aria-modal="true" aria-label="Checkout">
             <button id="checkoutModalCloseBtn" aria-label="Close checkout">✕</button>
-
             <h2>Checkout</h2>
-
             <div id="checkoutDiscountInfo" class="discount-info" style="display:none;"></div>
-
-            <!-- MOVED: Promo block placed *before* cartSection so it appears before totals -->
             <div id="promoWrapper" style="margin-top:12px;">
                 <label for="promoInput">Promo code</label>
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -183,10 +248,7 @@
                 </div>
                 <div id="promoMsg" style="margin-top:8px;color:#666;font-size:0.95em;"></div>
             </div>
-
-            <!-- Cart summary + totals are rendered here by main.js into #cartSection -->
             <div id="cartSection" aria-live="polite"></div>
-
             <div id="paymentSelectWrapper" style="display:block;margin-top:12px;">
                 <label class="payment-dropdown-label">Select Payment Method</label>
                 <select id="paymentSelect" class="payment-select">
@@ -194,7 +256,6 @@
                     <option>Visa/Mastercard</option>
                 </select>
             </div>
-
             <form id="orderForm" style="margin-top:12px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                     <input id="customer" name="customer" type="text" placeholder="Full name" required
@@ -206,14 +267,11 @@
                     <input id="date" name="date" type="datetime-local"
                         style="padding:8px;border:1px solid #ddd;border-radius:6px;">
                 </div>
-
                 <div style="margin-top:10px;">
                     <textarea id="address" name="address" rows="3" placeholder="Shipping address"
                         style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;"></textarea>
                 </div>
-
                 <div id="orderMsg" style="margin-top:10px;"></div>
-
                 <div class="form-buttons" style="margin-top:12px;">
                     <button id="checkoutBtn" type="submit"
                         style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Place
@@ -226,7 +284,6 @@
         </div>
     </div>
 
-    <!-- Order confirmation modal -->
     <div id="orderConfirmationModalBg" class="cart-modal-bg" style="display:none;">
         <div id="orderConfirmationModalContent" class="cart-modal-content" style="max-width:400px;text-align:center;">
             <button id="orderConfirmationModalCloseBtn" title="Close"
@@ -235,22 +292,14 @@
         </div>
     </div>
 
-    <!-- Dynamic Top Picks container (optional: also used by men.html previously) -->
     <div id="dynamicTopPicksByLifestyleContainer" style="display:none;"></div>
-
-    <!-- Placeholder for homepage sections rendering done by main.js -->
     <div id="homepage-sections"></div>
 
-    <!-- Small compatibility shim before main.js loads:
-         - Rewrites fetch() calls that hardcode "http://127.0.0.1:5000" to use relative paths.
-         This preserves existing main.js behavior without editing that file.
-    -->
     <script>
         (function () {
             const ORIGINAL_FETCH = window.fetch.bind(window);
             window.fetch = function (input, init) {
                 try {
-                    // If input is a Request object, derive URL
                     if (input && typeof input === 'object' && input.url) {
                         let newUrl = input.url;
                         if (typeof newUrl === 'string' && newUrl.indexOf('http://127.0.0.1:5000') === 0) {
@@ -263,39 +312,33 @@
                         }
                     }
                 } catch (e) {
-                    // If something goes wrong, fall through to default fetch
                 }
                 return ORIGINAL_FETCH(input, init);
             };
         })();
     </script>
 
-    <!-- Load main.js (use Flask url_for) -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-
-    <!-- Small glue: open checkout modal from cart button inside cart modal -->
+    <script src="{{ url_for('static', filename='js/announcements.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/hero-audio.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/footer.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/hero-enhance.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const openCheckoutBtn = document.getElementById('openCheckoutFromCart');
             if (openCheckoutBtn) {
                 openCheckoutBtn.addEventListener('click', function (e) {
-                    // If the anchor has a real href (not '#'), prefer normal navigation to the checkout page.
-                    // Only open the in-page modal when the href is exactly '#' or missing.
                     const href = openCheckoutBtn.getAttribute('href');
                     if (href && href !== '#' && href.trim() !== '') {
-                        // let the browser navigate to the dedicated checkout page
                         return;
                     }
                     e.preventDefault();
-                    // Hide cart modal and open checkout modal
                     const cartBg = document.getElementById('cartModalBg');
                     if (cartBg) cartBg.style.display = 'none';
                     const checkoutBg = document.getElementById('checkoutModalBg');
                     if (checkoutBg) checkoutBg.style.display = 'flex';
                 });
             }
-
-            // Ensure overlay close button exists and binds (main.js also binds it)
             const overlayClose = document.getElementById('overlayCloseBtn');
             if (overlayClose) overlayClose.addEventListener('click', function () {
                 const overlay = document.getElementById('productDetailOverlay');

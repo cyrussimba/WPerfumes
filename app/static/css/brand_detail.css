@@ -18,6 +18,31 @@
     --font-sans: Roboto, Arial, sans-serif;
 }
 
+/* Page-only site container
+   This keeps announcement, navbar, main and footer aligned to the same centered width
+   without touching site-wide main.css. */
+.site-container {
+    max-width: var(--max-content-width);
+    margin: 0 auto;
+    padding: 0 var(--container-padding);
+    box-sizing: border-box;
+}
+
+/* make direct children fill the container width */
+.site-container>.announcement-bar,
+.site-container>.navbar,
+.site-container>main,
+.site-container>footer {
+    width: 100%;
+}
+
+/* small-screen tweak for the container gutters */
+@media (max-width: 480px) {
+    .site-container {
+        padding: 0 8px;
+    }
+}
+
 /* Reset / base */
 html,
 body {
@@ -125,6 +150,21 @@ a {
     border: 1px solid transparent;
 }
 
+/* Active (current) navbar item styling — used to mark Cart as active on this page */
+.cart-btn.nav-active,
+.navbar-right .cart-btn[aria-current="page"] {
+    background: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(45, 143, 124, 0.12);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ensure the svg inherits color when we use stroke="currentColor" on svg */
+.cart-btn.nav-active svg,
+.navbar-right .cart-btn[aria-current="page"] svg {
+    color: inherit;
+}
+
 .cart-btn svg,
 .login-btn svg {
     display: inline-block;
@@ -144,35 +184,111 @@ a {
     justify-content: center;
 }
 
-/* Main layout */
+/* Main layout
+   Use the .site-container to control the content width; make main fill the container. */
 main {
-    max-width: var(--max-content-width);
-    margin: 18px auto;
+    width: 100%;
+    margin: 18px 0;
     padding: 0 var(--container-padding);
 }
 
-.main-product-row {
-    display: flex;
-    gap: 24px;
-    align-items: flex-start;
-    justify-content: space-between;
+/* Product panel (card around the main product row) */
+.product-panel {
+    background: #ffffff;
+    padding: 18px;
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(45, 143, 124, 0.06);
+    margin-bottom: 18px;
 }
 
-.image-section {
+/* ENHANCED THREE COLUMN LAYOUT */
+.main-product-row {
     display: flex;
-    gap: 12px;
+    gap: 36px;
     align-items: flex-start;
-    flex-direction: row;
-    width: 340px;
-    min-width: 260px;
+    justify-content: space-between;
+
+    /* Ensures the row tries to remain horizontal on desktop */
+    flex-wrap: nowrap;
+}
+
+/* Force row layout when viewport is large enough (avoid accidental stacking) */
+@media (min-width: 901px) {
+    .main-product-row {
+        flex-direction: row;
+    }
+}
+
+/* LEFT COLUMN: IMAGE + THUMBNAILS */
+.image-section {
+    /* prefer a fixed-ish column for the image so center + right can flex */
+    flex: 0 0 260px;
+    min-width: 210px;
+    max-width: 300px;
+    background: #f8f8fc;
+    padding: 22px 0 22px 0;
+    border-radius: 18px;
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.product-image-wrapper {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    background: #f9f9f9;
+    width: 100%;
+    max-width: 260px;
+    height: 260px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 14px;
+    /* space between main image and thumbnails */
+}
+
+#productImage {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+    transition: transform 0.18s ease;
+    background: #fff;
+    display: block;
+}
+
+.product-image-wrapper:hover #productImage {
+    transform: scale(1.02);
+}
+
+.product-panel {
+    /* Make background almost fully opaque (preserves child element appearance) */
+    background: rgba(255, 255, 255, 0.98);
+    padding: 18px;
+    border-radius: 14px;
+
+    /* Stronger shadow for more separation */
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+
+    /* Slightly more visible green-tinted border */
+    border: 1px solid rgba(45, 143, 124, 0.12);
+
+    margin-bottom: 18px;
 }
 
 .thumbnails-col {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
     align-items: center;
-    width: 64px;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 0;
 }
 
 .thumbnail-img {
@@ -197,39 +313,16 @@ main {
     box-shadow: 0 6px 20px rgba(45, 143, 124, 0.12);
 }
 
-.product-image-wrapper {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius);
-    background: #f9f9f9;
-    width: 100%;
-    max-width: 360px;
-    height: 360px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    position: relative;
-}
-
-#productImage {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: 6px;
-    transition: transform 0.18s ease;
-    background: #fff;
-    display: block;
-}
-
-.product-image-wrapper:hover #productImage {
-    transform: scale(1.02);
-}
-
+/* CENTER COLUMN: INFO */
 .info-section {
-    flex: 1;
-    min-width: 320px;
-    max-width: calc(100% - 380px);
+    /* flexible center column — grows/shrinks to fit available space */
+    flex: 1 1 440px;
+    min-width: 260px;
+    max-width: 560px;
+    padding: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 #productName {
@@ -259,27 +352,10 @@ main {
     margin-bottom: 8px;
 }
 
-#productDescription {
-    font-size: 14px;
-    line-height: 1.5;
-    color: #333;
-    margin-bottom: 12px;
-}
-
-.specs {
-    margin-top: 16px;
-    font-size: 14px;
-}
-
-.specs h4 {
-    margin: 8px 0 6px 0;
-    font-size: 14px;
-    color: var(--dark-accent);
-}
-
-.specs ul {
-    margin: 0;
-    padding-left: 18px;
+.product-actions {
+    margin: 14px 0 10px 0;
+    display: flex;
+    gap: 18px;
 }
 
 .cta-button {
@@ -312,20 +388,74 @@ main {
     cursor: pointer;
 }
 
-.product-actions {
-    margin-top: 12px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
+/* specs (Key Notes) with green underline similar to fragrances.html */
+.specs {
+    margin-top: auto;
+    /* Key notes stick to bottom */
+    font-size: 14px;
 }
 
-.product-actions .badge {
-    background: #f7f7f7;
-    color: #666;
-    padding: 6px 8px;
-    border-radius: 6px;
-    font-size: 13px;
-    border: 1px solid #ececec;
+.specs h4 {
+    margin: 8px 0 6px 0;
+    font-size: 14px;
+    color: var(--dark-accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 6px;
+    display: inline-block;
+}
+
+/* RIGHT COLUMN: DETAILS */
+.details-section {
+    /* right column should be slightly narrower but flexible */
+    flex: 0 0 360px;
+    min-width: 220px;
+    max-width: 400px;
+    padding: 14px 0 14px 18px;
+    border-left: 1.5px solid #f0f0f0;
+    background: #fafbff;
+    border-radius: 0 18px 18px 0;
+}
+
+.details-section h4 {
+    font-size: 1.15em;
+    margin-top: 0;
+    color: var(--dark-accent);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 6px;
+    display: inline-block;
+}
+
+/* Rich description formatting */
+.rich-description {
+    font-size: 1.04em;
+    line-height: 1.7;
+    color: #424242;
+    padding-top: 6px;
+}
+
+.rich-description ul,
+.rich-description ol {
+    margin: 10px 0 10px 20px;
+    padding-left: 18px;
+}
+
+.rich-description strong,
+.rich-description b {
+    font-weight: bold;
+}
+
+.rich-description em,
+.rich-description i {
+    font-style: italic;
+}
+
+.rich-description p {
+    margin: 8px 0;
+}
+
+.rich-description .emoji {
+    font-size: 1.2em;
+    margin-right: 2px;
 }
 
 /* Similar products slider */
@@ -378,108 +508,102 @@ main {
     color: #333;
 }
 
-/* Cart modal styles (kept minimal) */
-#cartModalOverlay {
-    display: none;
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-}
-
-#cartModal {
-    background: white;
-    width: 92%;
-    max-width: 720px;
-    border-radius: 10px;
-    padding: 18px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
-    max-height: 86vh;
-    overflow-y: auto;
-}
-
-#closeCartModal {
-    position: absolute;
-    right: 16px;
-    top: 18px;
-    background: transparent;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-}
-
-.form-group {
-    margin-bottom: 12px;
-}
-
-.form-row {
-    display: flex;
-    gap: 12px;
-}
-
-.form-row .form-group {
-    flex: 1;
-}
-
-/* Footer */
-footer {
-    margin-top: 28px;
-    background: var(--light-brown);
-    padding: 18px;
+/* Footer
+   Use .site-footer to align with the site container above. */
+.site-footer {
+    padding: 18px 0;
     color: var(--dark-text);
+    font-size: 0.95rem;
+    background: var(--light-brown);
     border-top: 1px solid var(--light-silver);
 }
 
-footer .footer-container {
-    max-width: var(--max-content-width);
-    margin: 0 auto;
+/* footer inner container should fill the site-container width */
+.site-footer .footer-inner,
+.site-footer .footer-container {
+    width: 100%;
+    margin: 0;
     padding: 0 var(--container-padding);
     display: flex;
     gap: 18px;
     flex-wrap: wrap;
 }
 
-/* Responsive */
-@media (max-width: 980px) {
+/* Responsive
+   Criteria: keep three-column layout on desktop, stack for narrower devices. */
+@media (max-width: 1100px) {
     .main-product-row {
-        flex-direction: column;
         gap: 18px;
     }
 
+    .details-section {
+        max-width: 320px;
+        min-width: 0;
+        padding-left: 12px;
+    }
+
     .image-section {
-        width: 100%;
+        max-width: 210px;
+    }
+}
+
+/* Stack vertically on small screens only */
+@media (max-width: 900px) {
+    .main-product-row {
+        flex-direction: column;
+        gap: 16px;
+        /* allow items to wrap/stack on smaller widths */
+        flex-wrap: wrap;
+    }
+
+    .details-section,
+    .image-section,
+    .info-section {
         max-width: 100%;
-        justify-content: center;
+        min-width: 0;
+        padding-left: 0;
+        border-left: none;
+        border-radius: 18px;
     }
 
-    .product-image-wrapper {
-        height: 320px;
+    .details-section {
+        margin-top: 18px;
+        background: #f7f8fa;
     }
 
-    .product-image-wrapper img {
-        max-width: 80%;
+    .thumbnails-col {
+        flex-direction: row;
+        gap: 8px;
     }
 }
 
 @media (max-width: 600px) {
     .product-image-wrapper {
-        height: 260px;
+        height: 180px;
+        max-width: 90vw;
     }
 
     .thumbnail-img {
-        width: 44px;
-        height: 44px;
+        width: 38px;
+        height: 38px;
     }
 
     .product-actions {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
+    }
+
+    .info-section {
+        padding: 6px 0;
+    }
+
+    .details-section {
+        padding: 6px 0;
+    }
+
+    .thumbnails-col {
+        gap: 6px;
     }
 }
 
