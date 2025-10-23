@@ -46,13 +46,22 @@
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Site Settings</div>
             </div>
-            <form id="discountSettingForm" style="display:flex;align-items:center;gap:18px;margin-top:8px;">
-                <label for="checkout_discount_percent" style="font-weight:500;">Checkout Discount (%)</label>
-                <input type="number" min="0" max="100" step="0.1" id="checkout_discount_percent" style="width:70px;">
-                <button type="submit" class="btn accent">Save</button>
-                <span id="discountSaveMsg" style="margin-left:12px; color:#218c6e; font-size:0.98em;"></span>
+
+            <form id="discountSettingForm"
+                style="margin-top:12px;display:grid;grid-template-columns:1fr;gap:12px;align-items:start;">
+                <div>
+                    <label for="checkout_discount_percent" style="font-weight:500;">Checkout Discount (%)</label>
+                    <input type="number" min="0" max="100" step="0.1" id="checkout_discount_percent"
+                        style="width:120px;">
+                </div>
+
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button type="submit" class="btn accent">Save Settings</button>
+                    <span id="discountSaveMsg" style="margin-left:12px; color:#218c6e; font-size:0.98em;"></span>
+                </div>
             </form>
         </section>
+
         <section class="card" id="brandsCard">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Brands</div>

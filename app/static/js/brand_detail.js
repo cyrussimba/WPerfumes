@@ -1,6 +1,7 @@
 /* brand_detail.js
-   Updated: expose current product to window.currentProduct and wire the "Buy Now"
-   CTA (addCartBtn) to reuse the shared addToCart / checkout flow from main.js.
+   Updated: prefer explicit product_id query param (product_id) when present,
+   otherwise fall back to brand/product slug. This mirrors the change made to
+   the listing page which now passes product_id to guarantee the correct product.
 */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -128,10 +129,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // Get query params first (backwards compatible)
         const queryBrand = safeParam('brand') || '';
         const queryProduct = safeParam('product') || '';
+        const queryProductId = safeParam('product_id') || '';
 
         // Start with query params if present, otherwise fall back to path segments:
         let rawBrand = queryBrand;
         let rawProduct = queryProduct;
+        let rawProductId = queryProductId;
 
         if (!rawBrand) {
             try {
@@ -149,12 +152,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const brandForApi = encodeURIComponent((rawBrand || '').replace(/ /g, '_'));
         const productForApi = encodeURIComponent((rawProduct || '').replace(/ /g, '_'));
+        const productIdForApi = encodeURIComponent((rawProductId || '').trim());
 
         if (!brandForApi) {
             console.warn('No brand specified in query string or path. Attempting to continue with empty brand.');
         }
 
-        const productApiUrl = `${API}/products/${brandForApi}/${productForApi}`;
+        // If product_id present prefer the by-id endpoint
+        let productApiUrl;
+        if (productIdForApi) {
+            productApiUrl = `${API}/product_by_id?product_id=${productIdForApi}`;
+        } else {
+            productApiUrl = `${API}/products/${brandForApi}/${productForApi}`;
+        }
 
         try {
             const res = await fetch(productApiUrl);

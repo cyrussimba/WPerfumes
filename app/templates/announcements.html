@@ -5,6 +5,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WPerfumes Announcements</title>
+
+    <!-- Leaflet CSS for small map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-o9N1j8bM0g6IVT+gq4kZpM3b6rY2v6b7qf+3yg7P6u0=" crossorigin="" />
+
     <style>
         /* Reset and Basic Styles */
         * {
@@ -64,6 +69,7 @@
             text-align: left;
         }
 
+        /* Keep store locator styles and add small map container */
         .city-selector {
             display: flex;
             align-items: center;
@@ -80,14 +86,47 @@
             text-decoration: underline;
         }
 
-        .city-selector label,
-        .city-selector select {
-            color: #fff;
-            background-color: #333;
-            border: 1px solid #fff;
-            padding: 5px;
+        /* locator map (small, unobtrusive) */
+        .locator-map {
+            width: 180px;
+            height: 90px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: #fafafa;
+            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
             cursor: pointer;
-            font-size: 0.9rem;
+            /* hint that the map is interactive */
+        }
+
+        /* adjust map size on narrow viewports */
+        @media (max-width: 520px) {
+            .locator-map {
+                width: 140px;
+                height: 80px;
+            }
+
+            .announcement-text-container {
+                margin-right: 10px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .announcement-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .city-selector {
+                justify-content: space-between;
+                width: 100%;
+            }
+
+            .locator-map {
+                width: 100%;
+                height: 120px;
+            }
         }
     </style>
 </head>
@@ -104,32 +143,17 @@
                     <li>Shop With Us Now</li>
                 </ul>
             </div>
-            <div class="city-selector">
+            <div class="city-selector" aria-hidden="false">
                 <a href="store-locator.html" class="shop-locator">Store Locator</a>
-                <label for="city-dropdown">Shop from:</label>
-                <select id="city-dropdown">
-                    <option value="france">France</option>
-                    <option value="singapore">Singapore</option>
-                    <option value="india">India</option>
-                    <option value="uae">UAE</option>
-                    <option value="thailand">Thailand</option>
-                    <option value="turkey">Turkey</option>
-                </select>
+                <!-- Small interactive map showing logistics providers -->
+                <div id="locatorMap" class="locator-map" role="img" aria-label="Delivery providers map" tabindex="0">
+                </div>
             </div>
         </header>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // City Dropdown Alert Logic
-            const cityDropdown = document.getElementById('city-dropdown');
-            if (cityDropdown) {
-                cityDropdown.addEventListener('change', () => {
-                    const selectedCountry = cityDropdown.value;
-                    alert(`You have chosen to shop from ${selectedCountry}.`);
-                });
-            }
-
             // Announcement Text Scrolling Logic
             const announcementList = document.querySelector('.announcement-list');
             const items = document.querySelectorAll('.announcement-list li');
@@ -138,16 +162,24 @@
 
                 function showNextMessage() {
                     currentIndex = (currentIndex + 1) % items.length;
-                    // Each item has line-height 20px, so we translate by multiples of 20
-                    const translateYValue = -currentIndex * 20;
+                    const translateYValue = -currentIndex * (items[0].getBoundingClientRect().height || 20);
                     announcementList.style.transform = `translateY(${translateYValue}px)`;
                 }
 
                 // Auto-scroll every 3 seconds
                 setInterval(showNextMessage, 3000);
             }
+
+            // Map initialization moved to announcements.js (shared between pages)
         });
     </script>
+
+    <!-- Leaflet JS (loaded last so page renders quickly) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-V0g0Q0rK6XH+E4kQGmY2zq7v7i5lY5H2c18b6X4m4xE=" crossorigin=""></script>
+
+    <!-- Use Flask url_for when serving this page through Flask. If using static HTML, change this path accordingly. -->
+    <script src="{{ url_for('static', filename='js/announcements.js') }}"></script>
 </body>
 
 </html>

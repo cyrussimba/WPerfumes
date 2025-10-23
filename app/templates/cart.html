@@ -305,6 +305,9 @@
                     <h4 style="margin-top:0;margin-bottom:8px;">Order Summary</h4>
                     <div id="modalCartSummary" aria-live="polite"></div>
 
+                    <!-- PayPal button for modal checkout -->
+                    <div id="modal_paypal_button_container" style="margin-top:10px;"></div>
+
                     <div style="margin-top:10px;">
                         <label for="modal_promo_code" style="font-weight:700;margin-bottom:6px;display:block;">Promo
                             Code</label>
@@ -322,6 +325,11 @@
             </div>
         </div>
     </div>
+
+    <!-- PayPal SDK (sandbox client id) -->
+    <script
+        src="https://www.paypal.com/sdk/js?client-id=AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f&currency=USD"></script>
+    <script src="{{ url_for('static', filename='js/paypal.js') }}"></script>
 
     <script>
         const API = "/api";
@@ -348,6 +356,7 @@
         let selectedPromoPercent = 0;
         let selectedPromoCode = '';
 
+        // Fetch global discount percent from server (GET /api/settings/checkout_discount)
         async function fetchDiscountPercent() {
             try {
                 const r = await fetch(`${API}/settings/checkout_discount`);
@@ -376,6 +385,7 @@
             }
         }
 
+        // Load coupons from backend and populate promo select - use discount_value field
         async function loadActivePromosInto(selectElId = 'modal_promo_code') {
             try {
                 const res = await fetch(`${API}/coupons`);
@@ -394,11 +404,13 @@
             const today = new Date().toISOString().slice(0, 10);
             let options = '<option value="">-- None --</option>';
             availablePromos.forEach(p => {
-                if (p.active &&
-                    (!p.start_date || p.start_date <= today) &&
-                    (!p.end_date || p.end_date >= today)) {
-                    options += `<option value="${p.code}" data-percent="${p.percent || 0}">${p.code} ${p.description ? '(' + p.description + ')' : ''}</option>`;
+                // backend returns discount_value and discount_type; treat discount_value as percent only if type == 'percent'
+                let percent = 0;
+                if (p.discount_type === 'percent') {
+                    percent = parseFloat(p.discount_value || 0) || 0;
                 }
+                // store percent in data-percent attribute so selection handler can read it
+                options += `<option value="${p.code}" data-percent="${percent}">${p.code} ${p.description ? '(' + p.description + ')' : ''}</option>`;
             });
             promoSelect.innerHTML = options;
 
@@ -406,7 +418,11 @@
                 const code = this.value || '';
                 selectedPromoCode = code;
                 const found = availablePromos.find(x => x.code === code);
-                selectedPromoPercent = found ? (parseFloat(found.percent) || 0) : 0;
+                if (found) {
+                    selectedPromoPercent = found.discount_type === 'percent' ? (parseFloat(found.discount_value) || 0) : 0;
+                } else {
+                    selectedPromoPercent = 0;
+                }
                 document.getElementById('modalPromoMsg').innerText = selectedPromoPercent > 0 ? `Promo will apply ${selectedPromoPercent}% off.` : '';
                 renderModalCartSummary();
             });
@@ -458,12 +474,13 @@
             }
         }
 
+        // Render main cart on page (now shows discounted total if auto-discount present)
         function renderCart() {
             cart = JSON.parse(localStorage.getItem('cart') || "[]");
             if (!cart || !cart.length) {
                 cartSection.innerHTML = '<div class="cart-empty">Your cart is empty.</div>';
                 document.getElementById('checkoutBtnLink').style.display = "none";
-                discountInfoDiv.style.display = "none";
+                discountInfoDiv.style.display = 'none';
                 return;
             }
 
@@ -499,6 +516,12 @@
 
             const subtotal = cart.reduce((sum, i) => sum + (parseFloat(i.price || 0) * (i.quantity || i.qty || 0)), 0);
 
+            // apply only the automatic global discount (checkoutDiscountPercent) on the main cart view.
+            // Promo codes are applied in the modal (explicit selection).
+            const globalPercent = checkoutDiscountPercent || 0;
+            const discountAmount = subtotal * (globalPercent / 100);
+            const totalAfterGlobal = subtotal - discountAmount;
+
             const table = `
                 <table>
                     <thead>
@@ -513,8 +536,16 @@
                     </tbody>
                     <tfoot>
                         <tr class="total-row">
-                            <td colspan="2"></td>
+                            <td colspan="2" style="font-weight:600;">Subtotal</td>
                             <td style="font-weight:bold;">${formatPriceInteger(subtotal)}</td>
+                        </tr>
+                        ${globalPercent > 0 ? `<tr class="total-row">
+                            <td colspan="2" style="font-weight:600;color:#b8860b;">Auto Discount (${globalPercent}%)</td>
+                            <td style="text-align:right;color:#b8860b;">-${formatPriceInteger(discountAmount)}</td>
+                        </tr>` : ''}
+                        <tr class="total-row">
+                            <td colspan="2" style="font-weight:700;">Total</td>
+                            <td style="text-align:right;color:#27ae60;font-weight:700;">${formatPriceInteger(totalAfterGlobal)}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -559,14 +590,16 @@
                     <td style="text-align:right;">${formatPriceInteger(itemTotal)}</td>
                 </tr>`;
             });
+            // combined percent = global checkout discount + selected promo percent (if promo is percent-based)
             let combinedPercent = (checkoutDiscountPercent || 0) + (selectedPromoPercent || 0);
             if (combinedPercent > 95) combinedPercent = 95;
             const discountedTotal = subtotal * (1 - combinedPercent / 100);
+            const discountAmount = subtotal - discountedTotal;
 
             html += `</tbody>
                 <tfoot>
                     <tr class="total-row"><td></td><td style="font-weight:700;">Subtotal</td><td style="text-align:right;font-weight:700;">${formatPriceInteger(subtotal)}</td></tr>
-                    <tr class="total-row"><td></td><td style="font-weight:700;">Discounts</td><td style="text-align:right;color:#b8860b;">-${combinedPercent}%</td></tr>
+                    <tr class="total-row"><td></td><td style="font-weight:700;">Discounts</td><td style="text-align:right;color:#b8860b;">-${combinedPercent}% (${formatPriceInteger(discountAmount)})</td></tr>
                     <tr class="total-row"><td></td><td style="font-weight:700;">Total</td><td style="text-align:right;color:#27ae60;font-weight:700;">${formatPriceInteger(discountedTotal)}</td></tr>
                 </tfoot>
             </table>`;
@@ -606,8 +639,26 @@
             fetchDiscountPercent().then(() => {
                 loadActivePromosInto().then(() => {
                     renderModalCartSummary();
+                    // show the modal
                     document.getElementById('checkoutBackdrop').style.display = 'flex';
                     document.getElementById('checkoutBackdrop').setAttribute('aria-hidden', 'false');
+
+                    // Render PayPal buttons now that the container is visible.
+                    // This avoids rendering inside display:none which can appear invisible.
+                    try {
+                        // only render if paypal SDK is loaded and container exists
+                        if (window.paypal && document.querySelector('#modal_paypal_button_container')) {
+                            const container = document.querySelector('#modal_paypal_button_container');
+                            // avoid double-rendering by checking container content
+                            if (!container.innerHTML.trim()) {
+                                // call the helper defined in static/js/paypal.js
+                                renderPayPalButtons('#modal_paypal_button_container', { currency: 'USD', successUrl: '/' });
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('PayPal render attempt failed', err);
+                    }
+
                     setTimeout(() => document.getElementById('modal_customer').focus(), 50);
                 });
             });
@@ -727,12 +778,13 @@
                 renderModalCartSummary();
                 setTimeout(() => {
                     closeCheckoutModal();
-                    window.location.href = "{{ url_for('index') }}";
+                    window.location.href = "{{ url_for('main.index') }}";
                 }, 1600);
             }
         });
 
-        document.getElementById('modalBuyNowBtn').addEventListener('click', async function () {
+        // Enhanced modal Buy Now handler with friendly guidance on PayPal failures
+        async function handleModalBuyNow() {
             const customer = document.getElementById('modal_customer').value || '';
             const email = document.getElementById('modal_email').value || '';
             const phone = document.getElementById('modal_phone').value || '';
@@ -747,22 +799,44 @@
             setButtonState(document.getElementById('modalBuyNowBtn'), false);
 
             await logOrderAttemptsForCart('CheckedOut');
-            const results = await submitOrdersFromModal(customer, email, phone, address, payment_method, promo_code, dateVal);
 
-            const anyFailed = results.some(r => !r.ok);
-            if (anyFailed) {
-                orderMsg.innerHTML = '<div style="color:#e74c3c;font-weight:700;">Order failed for one or more items.</div>';
-                updateModalPaymentButtonsState();
+            // persist customer/items for the return/capture flow
+            const customerObj = { name: customer, email: email, phone: phone, address: address };
+            try { localStorage.setItem('paypal_customer', JSON.stringify(customerObj)); } catch (e) { /* ignore */ }
+
+            const cartLocal = JSON.parse(localStorage.getItem('cart') || "[]");
+            const items = cartLocal.map(i => ({
+                id: i.id || i.product_id || '',
+                title: i.title || i.name || '',
+                unit_price: parseFloat(i.price || 0),
+                quantity: parseInt(i.quantity || i.qty || 1, 10),
+                currency: 'USD'
+            }));
+            try { localStorage.setItem('paypal_items', JSON.stringify(items)); } catch (e) { /* ignore */ }
+
+            if (typeof window.initiateCardCheckout === 'function') {
+                try {
+                    await window.initiateCardCheckout(items, { currency: 'USD', returnUrl: window.location.origin + '/paypal/return' });
+                } catch (err) {
+                    console.error('initiateCardCheckout error', err);
+                    const detail = (err && err.message) ? err.message : String(err);
+                    if (detail.toLowerCase().includes('401') || detail.toLowerCase().includes('unauthorized')) {
+                        orderMsg.innerHTML = `<div style="color:#e74c3c;font-weight:700;">Payment provider credentials appear missing or invalid on the server.</div>
+                        <div style="color:#666;margin-top:8px;">Please ensure PAYPAL_CLIENT_ID and PAYPAL_SECRET are set as environment variables on the server (use sandbox values for development), and restart the application.</div>
+                        <div style="color:#666;margin-top:8px;font-size:0.9em;">Server error details: ${detail}</div>`;
+                    } else {
+                        orderMsg.innerHTML = `<div style="color:#e74c3c;font-weight:700;">Failed to start card (PayPal) checkout.</div><div style="color:#666;margin-top:8px;font-size:0.9em;">${detail}</div>`;
+                    }
+                    updateModalPaymentButtonsState();
+                }
             } else {
-                orderMsg.innerHTML = `<div style="color:#27ae60;font-weight:700;">Payment successful. Thank you! Redirecting...</div>`;
-                localStorage.removeItem('cart');
-                renderCart();
-                renderModalCartSummary();
-                setTimeout(() => {
-                    closeCheckoutModal();
-                    window.location.href = "{{ url_for('index') }}";
-                }, 1400);
+                orderMsg.innerHTML = '<div style="color:#e74c3c;font-weight:700;">Card checkout not available in this browser.</div>';
+                updateModalPaymentButtonsState();
             }
+        }
+
+        document.getElementById('modalBuyNowBtn').addEventListener('click', function () {
+            handleModalBuyNow();
         });
 
         const modalPaymentSelectEl = document.getElementById('modal_paymentSelect');
@@ -771,6 +845,7 @@
         }
 
         (async function () {
+            // Ensure discount loaded before first render so totals reflect it
             await fetchDiscountPercent();
 
             const current = JSON.parse(localStorage.getItem('cart') || "[]");

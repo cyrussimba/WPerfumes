@@ -1,0 +1,26 @@
+<div class="announcement-container container" aria-live="polite">
+    <header class="announcement-bar" role="region" aria-label="Site announcements">
+        <div class="announcement-text-container" aria-hidden="false">
+            <ul class="announcement-list" aria-live="off" aria-hidden="false">
+                <li>Shop Now Pay Later</li>
+                <li>Free Delivery Above $50</li>
+                <li>10% Discount if Cash on Delivery</li>
+                <li>Trusted Products</li>
+                <li>Shop With Us Now</li>
+            </ul>
+        </div>
+
+        <!-- Announcement right-side: store locator button + tiny interactive map -->
+        <div class="city-selector" aria-hidden="false">
+            <!-- Plain button (no navigation) — opens modal locator -->
+            <button id="locatorOpenBtn" type="button" class="shop-locator" aria-haspopup="dialog"
+                aria-controls="locatorModal">
+                Store Locator
+            </button>
+
+            <!-- Small map used as teaser (click opens full locator modal) -->
+            <div id="locatorSmallMap" class="locator-map" role="img" aria-label="Delivery providers preview map"
+                tabindex="0"></div>
+        </div>
+    </header>
+</div>

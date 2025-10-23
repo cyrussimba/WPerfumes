@@ -1,12 +1,13 @@
-from flask import request, jsonify, session, render_template, url_for, redirect, current_app
+from flask import Blueprint, request, jsonify, session, render_template, url_for, redirect, current_app
 from flask_mail import Message
 from datetime import datetime
 from . import db, mail
-from .models import Brand, Product, HomepageProduct, Coupon, Order, OrderAttempt
+from .models import Brand, Product, HomepageProduct, Coupon, Order, OrderAttempt, Story
+
+bp = Blueprint("main", __name__)
+
 
 # Helper: normalize image paths to browser-ready URLs
-
-
 def to_static_url(path):
     """
     Convert a stored image path like 'images/creed/aventus.jpg'
@@ -21,34 +22,101 @@ def to_static_url(path):
 
 
 # -------------------------
+# Story helpers
+# -------------------------
+def _get_published_story_for_section_or_slug(section_or_slug):
+    """
+    Resolve a story to show on a simple section page (e.g. 'history' or 'about').
+    Priority:
+      1) Story with slug == section_or_slug and published=True
+      2) Most recent Story with section == section_or_slug and published=True
+      3) None
+    """
+    if not section_or_slug:
+        return None
+    # exact slug match
+    s = Story.query.filter_by(slug=section_or_slug, published=True).first()
+    if s:
+        return s
+    # fallback: latest published story in this section
+    s2 = Story.query.filter_by(section=section_or_slug, published=True) \
+        .order_by(Story.published_at.desc().nullslast(), Story.created_at.desc()) \
+        .first()
+    return s2
+
+
+def _get_published_stories_for_section(section, limit=None, page=1):
+    """
+    Return a list of published stories for the given section, newest first.
+    If section is None or empty, return all published stories.
+    Pagination via limit/page if provided.
+    """
+    q = Story.query.filter_by(published=True)
+    if section:
+        q = q.filter_by(section=section)
+    q = q.order_by(Story.published_at.desc().nullslast(),
+                   Story.created_at.desc())
+    if limit:
+        try:
+            limit = int(limit)
+        except Exception:
+            limit = None
+    try:
+        page = int(page) if page and int(page) > 0 else 1
+    except Exception:
+        page = 1
+    if limit:
+        q = q.limit(limit).offset((page - 1) * limit)
+    return q.all()
+
+
+def _render_story_page_or_fallback(story, fallback_title, fallback_html):
+    """
+    Given a Story (or None) render content_page.html with story data or fallback markup.
+    """
+    if story:
+        data = story.to_public_dict()
+        images = []
+        if data.get("featured_image"):
+            images = [data.get("featured_image")]
+        meta = {
+            "author": data.get("author"),
+            "published_at": data.get("published_at")
+        }
+        return render_template("content_page.html", title=data.get("title"), body_html=data.get("body_html"), images=images, meta=meta)
+    # fallback
+    return render_template("content_page.html", title=fallback_title, body_html=fallback_html, images=[], meta={})
+
+
+# -------------------------
 # Page routes
 # -------------------------
-@current_app.route('/admin')
+@bp.route('/admin')
 def admin_dashboard():
     return render_template('admin.html')
 
 
-@current_app.route('/brand')
+@bp.route('/brand')
 def brand():
     return render_template('brand.html')
 
 
-@current_app.route('/brand_detail')
+@bp.route('/brand_detail')
 def brand_detail():
     return render_template('brand_detail.html')
 
 
-@current_app.route('/checkout')
+@bp.route('/checkout')
 def checkout():
     return render_template('checkout.html')
 
 
-@current_app.route('/cart')
+@bp.route('/cart')
 def cart():
     return render_template('cart.html')
 
 
-@current_app.route('/forgot_password')
+@bp.route('/forgot_password')
 def forgot_password():
     return render_template('forgot_password.html')
 
@@ -56,7 +124,7 @@ def forgot_password():
 # -------------------------
 # Auth endpoints
 # -------------------------
-@current_app.route('/api/auth/login', methods=['POST'])
+@bp.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.json or {}
     # Accept either username or email (frontend uses email in many places)
@@ -69,7 +137,7 @@ def login():
     return jsonify({"error": "Invalid credentials"}), 401
 
 
-@current_app.route('/api/auth/logout', methods=['POST'])
+@bp.route('/api/auth/logout', methods=['POST'])
 def logout():
     session.pop('user', None)
     return jsonify({"success": True})
@@ -78,7 +146,7 @@ def logout():
 # -------------------------
 # Brands / Products
 # -------------------------
-@current_app.route('/api/brands', methods=['GET'])
+@bp.route('/api/brands', methods=['GET'])
 def get_brands():
     brands = Brand.query.order_by(Brand.name).all()
     return jsonify([{
@@ -88,7 +156,7 @@ def get_brands():
     } for b in brands])
 
 
-@current_app.route('/api/brands', methods=['POST'])
+@bp.route('/api/brands', methods=['POST'])
 def add_brand():
     data = request.json or {}
     brand = Brand(name=data.get("name"),
@@ -98,7 +166,7 @@ def add_brand():
     return jsonify({"success": True})
 
 
-@current_app.route('/api/brands/<name>', methods=['PUT'])
+@bp.route('/api/brands/<name>', methods=['PUT'])
 def update_brand(name):
     b = Brand.query.filter_by(name=name).first()
     if not b:
@@ -109,7 +177,7 @@ def update_brand(name):
     return jsonify({"success": True})
 
 
-@current_app.route('/api/brands/<name>', methods=['DELETE'])
+@bp.route('/api/brands/<name>', methods=['DELETE'])
 def delete_brand(name):
     b = Brand.query.filter_by(name=name).first()
     if b:
@@ -120,7 +188,7 @@ def delete_brand(name):
     return jsonify({"error": "Brand not found"}), 404
 
 
-@current_app.route('/api/products', methods=['GET'])
+@bp.route('/api/products', methods=['GET'])
 def get_products():
     products = Product.query.all()
     return jsonify([
@@ -141,7 +209,7 @@ def get_products():
     ])
 
 
-@current_app.route('/api/products', methods=['POST'])
+@bp.route('/api/products', methods=['POST'])
 def add_product():
     data = request.json or {}
     product = Product(
@@ -162,7 +230,7 @@ def add_product():
     return jsonify({"success": True})
 
 
-@current_app.route('/api/products/<id>', methods=['PUT'])
+@bp.route('/api/products/<id>', methods=['PUT'])
 def update_product(id):
     prod = Product.query.filter_by(id=id).first()
     if not prod:
@@ -182,7 +250,7 @@ def update_product(id):
     return jsonify({"success": True})
 
 
-@current_app.route('/api/products/<id>', methods=['DELETE'])
+@bp.route('/api/products/<id>', methods=['DELETE'])
 def delete_product(id):
     prod = Product.query.filter_by(id=id).first()
     if prod:
@@ -192,7 +260,7 @@ def delete_product(id):
     return jsonify({"error": "Product not found"}), 404
 
 
-@current_app.route('/api/products/status/<id>', methods=['PUT'])
+@bp.route('/api/products/status/<id>', methods=['PUT'])
 def update_product_status(id):
     data = request.json or {}
     prod = Product.query.filter_by(id=id).first()
@@ -203,7 +271,94 @@ def update_product_status(id):
     return jsonify({"error": "Product not found"}), 404
 
 
-@current_app.route('/api/products/<brand>', methods=['GET'])
+# NEW: authoritative lookup by product_id (maintains compatibility with existing frontend)
+@bp.route('/api/product_by_id', methods=['GET'])
+def get_product_by_id():
+    """
+    Client expects: GET /api/product_by_id?product_id=PRD123
+    Return a single product JSON object or 404.
+    """
+    product_id = request.args.get('product_id') or request.args.get('id') or ''
+    if not product_id:
+        return jsonify({"error": "product_id required"}), 400
+
+    prod = Product.query.filter_by(id=product_id).first()
+    if not prod:
+        return jsonify({"error": "Product not found"}), 404
+
+    return jsonify({
+        "id": prod.id,
+        "brand": prod.brand,
+        "title": prod.title,
+        "price": prod.price,
+        "description": prod.description,
+        "keyNotes": prod.keyNotes.split(";") if prod.keyNotes else [],
+        "image_url": to_static_url(prod.image_url or prod.image_url_dynamic),
+        "thumbnails": prod.thumbnails if prod.thumbnails else "",
+        "status": prod.status,
+        "quantity": prod.quantity,
+        "tags": prod.tags
+    })
+
+
+# NEW: compatible fallback endpoint used by some client pages
+@bp.route('/api/product', methods=['GET'])
+def get_product_by_brand_query():
+    """
+    Client fallback: GET /api/product?brand=Amouage&product=Gold
+    Accepts brand & product as query params (slugs with underscores),
+    returns a single product JSON or 404. Mirrors existing /api/products/<brand>/<product>.
+    """
+    brand_param = request.args.get('brand') or ''
+    product_param = request.args.get('product') or ''
+    # If caller passed a product_id in the query, prefer authoritative id
+    product_id = request.args.get('product_id') or ''
+
+    # Prefer authoritative id if provided
+    if product_id:
+        prod = Product.query.filter_by(id=product_id).first()
+        if prod:
+            return jsonify({
+                "id": prod.id,
+                "brand": prod.brand,
+                "title": prod.title,
+                "price": prod.price,
+                "description": prod.description,
+                "keyNotes": prod.keyNotes.split(";") if prod.keyNotes else [],
+                "image_url": to_static_url(prod.image_url or prod.image_url_dynamic),
+                "thumbnails": prod.thumbnails if prod.thumbnails else "",
+                "status": prod.status,
+                "quantity": prod.quantity,
+                "tags": prod.tags
+            })
+        return jsonify({"error": "Product not found"}), 404
+
+    if not brand_param or not product_param:
+        return jsonify({"error": "brand and product query parameters required"}), 400
+
+    brand_name = brand_param.replace('_', ' ')
+    product_title = product_param.replace('_', ' ')
+    prod = Product.query.filter_by(
+        brand=brand_name, title=product_title).first()
+    if not prod:
+        return jsonify({"error": "Product not found"}), 404
+
+    return jsonify({
+        "id": prod.id,
+        "brand": prod.brand,
+        "title": prod.title,
+        "price": prod.price,
+        "description": prod.description,
+        "keyNotes": prod.keyNotes.split(";") if prod.keyNotes else [],
+        "image_url": to_static_url(prod.image_url or prod.image_url_dynamic),
+        "thumbnails": prod.thumbnails if prod.thumbnails else "",
+        "status": prod.status,
+        "quantity": prod.quantity,
+        "tags": prod.tags
+    })
+
+
+@bp.route('/api/products/<brand>', methods=['GET'])
 def get_products_by_brand(brand):
     # If brand param actually matches a product id, return that product
     by_id = Product.query.filter_by(id=brand).first()
@@ -241,7 +396,7 @@ def get_products_by_brand(brand):
     ])
 
 
-@current_app.route('/api/products/<brand>/<product>', methods=['GET'])
+@bp.route('/api/products/<brand>/<product>', methods=['GET'])
 def get_product_detail(brand, product):
     brand_name = brand.replace('_', ' ')
     product_title = product.replace('_', ' ')
@@ -264,7 +419,7 @@ def get_product_detail(brand, product):
     })
 
 
-@current_app.route('/api/homepage-products', methods=['GET'])
+@bp.route('/api/homepage-products', methods=['GET'])
 def get_homepage_products():
     homepage_products = HomepageProduct.query.order_by(
         HomepageProduct.section, HomepageProduct.sort_order).all()
@@ -289,7 +444,7 @@ def get_homepage_products():
     return jsonify(result)
 
 
-@current_app.route('/api/homepage-products', methods=['POST'])
+@bp.route('/api/homepage-products', methods=['POST'])
 def add_homepage_product():
     data = request.json or {}
     hp = HomepageProduct(
@@ -303,7 +458,7 @@ def add_homepage_product():
     return jsonify({"success": True})
 
 
-@current_app.route('/api/homepage-products/<int:homepage_id>', methods=['PUT'])
+@bp.route('/api/homepage-products/<int:homepage_id>', methods=['PUT'])
 def update_homepage_product(homepage_id):
     hp = HomepageProduct.query.filter_by(homepage_id=homepage_id).first()
     if not hp:
@@ -317,7 +472,7 @@ def update_homepage_product(homepage_id):
     return jsonify({"success": True})
 
 
-@current_app.route('/api/homepage-products/<int:homepage_id>', methods=['DELETE'])
+@bp.route('/api/homepage-products/<int:homepage_id>', methods=['DELETE'])
 def delete_homepage_product(homepage_id):
     hp = HomepageProduct.query.filter_by(homepage_id=homepage_id).first()
     if hp:
@@ -327,7 +482,7 @@ def delete_homepage_product(homepage_id):
     return jsonify({"error": "Homepage product not found"}), 404
 
 
-@current_app.route('/api/cart/add', methods=['POST'])
+@bp.route('/api/cart/add', methods=['POST'])
 def add_to_cart():
     data = request.json or {}
     product_id = data.get("product_id")
@@ -345,7 +500,7 @@ def add_to_cart():
     return jsonify({"success": True, "quantity_left": prod.quantity})
 
 
-@current_app.route('/api/order-attempts', methods=['POST'])
+@bp.route('/api/order-attempts', methods=['POST'])
 def log_order_attempt():
     data = request.json or {}
     attempt = OrderAttempt(
@@ -360,7 +515,7 @@ def log_order_attempt():
     return jsonify({"success": True})
 
 
-@current_app.route('/api/products/similar', methods=['GET'])
+@bp.route('/api/products/similar', methods=['GET'])
 def get_similar_products():
     product_id = request.args.get("product_id")
     prod = Product.query.filter_by(id=product_id).first()
@@ -386,7 +541,7 @@ def get_similar_products():
     return jsonify(result)
 
 
-@current_app.route('/api/coupons', methods=['GET'])
+@bp.route('/api/coupons', methods=['GET'])
 def get_coupons():
     coupons = Coupon.query.order_by(Coupon.start_date.desc()).all()
     return jsonify([
@@ -403,7 +558,7 @@ def get_coupons():
     ])
 
 
-@current_app.route('/api/coupons', methods=['POST'])
+@bp.route('/api/coupons', methods=['POST'])
 def add_coupon():
     data = request.json or {}
     c = Coupon.query.filter_by(code=data.get("code")).first()
@@ -431,7 +586,7 @@ def add_coupon():
     return jsonify({"success": True})
 
 
-@current_app.route('/api/coupons/<code>', methods=['PUT'])
+@bp.route('/api/coupons/<code>', methods=['PUT'])
 def update_coupon(code):
     coupon = Coupon.query.filter_by(code=code).first()
     if not coupon:
@@ -454,7 +609,7 @@ def update_coupon(code):
     return jsonify({"success": True})
 
 
-@current_app.route('/api/coupons/<code>', methods=['DELETE'])
+@bp.route('/api/coupons/<code>', methods=['DELETE'])
 def delete_coupon(code):
     coupon = Coupon.query.filter_by(code=code).first()
     if coupon:
@@ -464,7 +619,7 @@ def delete_coupon(code):
     return jsonify({"error": "Coupon not found"}), 404
 
 
-@current_app.route('/api/orders', methods=['GET'])
+@bp.route('/api/orders', methods=['GET'])
 def get_orders():
     orders = Order.query.order_by(Order.date.desc()).all()
     return jsonify([
@@ -485,7 +640,7 @@ def get_orders():
     ])
 
 
-@current_app.route('/api/orders', methods=['POST'])
+@bp.route('/api/orders', methods=['POST'])
 def add_order():
     data = request.json or {}
     customer_name = data.get("customer_name") or data.get("customer") or ""
@@ -541,17 +696,16 @@ WPerfumes Team
         )
         mail.send(msg)
     except Exception as e:
-        print(f"Error sending email: {e}")
+        # Mail failures should not break order creation
+        current_app.logger.debug(f"Error sending email: {e}")
 
     # Notify top-picks in-memory store so its sales_count can be updated immediately.
-    # This is a best-effort, wrapped in try/except to avoid breaking order creation if top-picks module is absent.
     try:
         from .routes_top_picks_stub import increment_sales_for_product
         try:
             increment_sales_for_product(product_id, quantity)
         except Exception as inner_exc:
-            # log but don't raise
-            print(
+            current_app.logger.debug(
                 f"Warning: failed to increment top-picks sales in-memory: {inner_exc}")
     except Exception:
         # top-picks stub not present or import failed — that's fine
@@ -560,7 +714,7 @@ WPerfumes Team
     return jsonify({"success": True})
 
 
-@current_app.route('/api/orders/<int:order_id>', methods=['PUT'])
+@bp.route('/api/orders/<int:order_id>', methods=['PUT'])
 def update_order(order_id):
     order = Order.query.filter_by(id=order_id).first()
     if not order:
@@ -610,12 +764,12 @@ WPerfumes Team
             )
             mail.send(msg)
         except Exception as e:
-            print(f"Error sending update email: {e}")
+            current_app.logger.debug(f"Error sending update email: {e}")
 
     return jsonify({"success": True})
 
 
-@current_app.route('/api/orders/<int:order_id>', methods=['DELETE'])
+@bp.route('/api/orders/<int:order_id>', methods=['DELETE'])
 def delete_order(order_id):
     order = Order.query.filter_by(id=order_id).first()
     if order:
@@ -626,51 +780,123 @@ def delete_order(order_id):
 
 
 # ===========================
-# NEW: Page Routes for HTML
+# Page Routes for HTML
 # ===========================
-
-# Add this function somewhere in app/routes.py (near other page routes)
-@current_app.route('/offers')
+@bp.route('/offers')
 def offers():
     # return an offers template; create templates/offers.html if it doesn't exist
     return render_template('offers.html')
 
 
-@current_app.route('/')
+@bp.route('/')
 def index():
     return render_template('index.html')
 
 
-@current_app.route('/men')
+@bp.route('/men')
 def men():
     return render_template('men.html')
 
 
-@current_app.route('/women')
+@bp.route('/women')
 def women():
     return render_template('women.html')
 
 
-@current_app.route('/beauty')
+@bp.route('/beauty')
 def beauty():
     return render_template('beauty.html')
 
 
-@current_app.route('/login')
+@bp.route('/login')
 def login_page():
     return render_template('login.html')
 
 
-@current_app.route('/signup')
+@bp.route('/signup')
 def signup():
     return render_template('signup.html')
 
 
-@current_app.route('/brand/<brand>')
+@bp.route('/brand/<brand>')
 def brand_page(brand):
     return render_template('brand_detail.html')
 
 
-@current_app.route('/brand/<brand>/product/<product>')
+@bp.route('/brand/<brand>/product/<product>')
 def brand_product_page(brand, product):
     return render_template('brand_detail.html')
+
+
+# New: story detail and section listing routes
+@bp.route('/story/<slug>')
+def story_detail_page(slug):
+    """
+    Render a single story by slug (server-side).
+    Falls back to 404 page if not found/published.
+    """
+    s = Story.query.filter_by(slug=slug, published=True).first()
+    if not s:
+        return render_template('404.html'), 404
+    data = s.to_public_dict()
+    images = [data.get('featured_image')] if data.get('featured_image') else []
+    meta = {"author": data.get(
+        'author'), "published_at": data.get('published_at')}
+    return render_template('content_page.html', title=data.get('title'), body_html=data.get('body_html'), images=images, meta=meta)
+
+
+@bp.route('/stories')
+def stories_index():
+    """
+    Generic listing of stories. Supports query params:
+      - section=history|about (optional)
+      - page, limit (optional)
+    Renders a server-side list template.
+    """
+    section = request.args.get('section')
+    try:
+        limit = int(request.args.get('limit')
+                    ) if request.args.get('limit') else None
+    except Exception:
+        limit = None
+    try:
+        page = int(request.args.get('page')) if request.args.get('page') else 1
+    except Exception:
+        page = 1
+
+    stories = _get_published_stories_for_section(
+        section, limit=limit, page=page)
+    # separate latest from others if present
+    latest = stories[0] if stories else None
+    others = stories[1:] if len(stories) > 1 else []
+    return render_template('content_section.html', section=section or 'Stories', latest=latest, stories=stories, others=others)
+
+
+# Updated History and About to render a section page (latest + archive)
+@bp.route('/history')
+def history():
+    """
+    Render the History page: latest story for section 'history' plus archive/list below.
+    If you prefer direct mapping, publish a story with slug='history' or section='history'.
+    """
+    stories = _get_published_stories_for_section('history', limit=None, page=1)
+    latest = stories[0] if stories else None
+    others = stories[1:] if len(stories) > 1 else []
+    return render_template('content_section.html', section='History', latest=latest, stories=stories, others=others)
+
+
+@bp.route('/about')
+def about():
+    """
+    Render the About Us page: latest story for section 'about' plus archive/list below.
+    """
+    stories = _get_published_stories_for_section('about', limit=None, page=1)
+    latest = stories[0] if stories else None
+    others = stories[1:] if len(stories) > 1 else []
+    return render_template('content_section.html', section='About Us', latest=latest, stories=stories, others=others)
+
+
+# Favicon: return 204 to avoid browser 404 noise
+@bp.route('/favicon.ico')
+def favicon():
+    return ("", 204)

@@ -1,9 +1,15 @@
-// Updated main.js - uses relative API base and defensive DOM handling
-// Enhanced: unified button state helper and payment-selection logic so that
-// clicking "Buy Now" shows a popup, and switching payment method (Cash on Delivery
-// vs Visa/Mastercard) updates "Place Order" and "Buy Now" appearance and behavior.
+// app/static/js/main.js
+// Full main.js with small compatibility aliases added so templates that call
+// openCheckoutModal/closeCheckoutModal or openCartModal/closeCartModal work.
 //
-// Drop-in replacement for existing main.js. Paste into your repository to replace the old file.
+// - Preserves all behavior from the previous main.js (cart management, promo handling,
+//   checkout modal, PayPal modal rendering helper).
+// - Adds window.openCheckoutModal / window.closeCheckoutModal as aliases to showCheckoutModal/hideCheckoutModal
+//   and similar aliases for cart modal and helpers.
+//
+// NOTE: small change: attachProductCardListeners now navigates to brand_detail using
+// query params and includes product_id when available to ensure the detail page can
+// fetch the exact product (avoids slug ambiguities).
 
 const API = "/api";
 
@@ -34,9 +40,6 @@ let checkoutDiscountPercent = 0;
  * btn: DOM element
  * enabled: boolean
  * opts: optional object {activeBg, disabledBg, activeTextColor, disabledTextColor, reason}
- *
- * This centralizes visual + accessibility updates for action buttons such as
- * "Place Order" and "Buy Now" across modals/pages.
  */
 function setButtonState(btn, enabled, opts = {}) {
     if (!btn) return;
@@ -93,7 +96,7 @@ async function fetchAndDisplayDiscountInfo() {
         }
     }
 
-    // Checkout Modal info
+    // Checkout Modal info (cover multiple potential IDs)
     const checkoutDiscDiv = document.getElementById('checkoutDiscountInfo') || document.getElementById('modalDiscountInfo') || document.getElementById('discountPercentInfo');
     if (checkoutDiscDiv) {
         if (percent > 0) {
@@ -165,7 +168,6 @@ function updateCartCount() {
 
 /*
  * When adding to cart we show a popup (checkout if available, otherwise cart modal).
- * This aligns with your request: user clicks "Buy Now" -> sees a popup window.
  */
 function addToCart(product) {
     const id = product.id || product.title;
@@ -178,14 +180,11 @@ function addToCart(product) {
     saveCart();
     updateCartCount();
 
-    // Prefer opening the checkout popup (in-page) for quick checkout flow.
-    // If unavailable, fall back to cart modal; otherwise navigate to /cart.
     if (document.getElementById('checkoutModalBg')) {
         showCheckoutModal();
     } else if (document.getElementById('cartModalBg')) {
         showCartModal();
     } else {
-        // navigate to dedicated cart page (link consistent with templates)
         window.location.href = (typeof window !== 'undefined') ? '/cart' : '';
     }
 }
@@ -210,7 +209,6 @@ function renderCartModal() {
         if (totalEl) totalEl.textContent = '';
         const cartDiscDiv = document.getElementById('cartDiscountInfo');
         if (cartDiscDiv) cartDiscDiv.style.display = "none";
-        // ensure checkout button is disabled when no items
         const checkoutBtn = document.getElementById('openCheckoutFromCart');
         if (checkoutBtn) setButtonState(checkoutBtn, false, { disabledBg: '#ccc', reason: 'Cart is empty' });
         return;
@@ -242,7 +240,6 @@ function renderCartModal() {
         </div>`;
     }
     cartListDiv.innerHTML = html;
-    // Display totals as integers (rounded)
     let totalHtml = `Total: ${formatPriceInteger(total)}`;
     if (checkoutDiscountPercent > 0) {
         totalHtml += `<br><span style="color:#27ae60;font-size:0.98em;">After Discount: ${formatPriceInteger(discountedTotal)} (-${checkoutDiscountPercent}%)</span>`;
@@ -250,7 +247,6 @@ function renderCartModal() {
     const cartTotalEl = document.getElementById('cartModalTotal');
     if (cartTotalEl) cartTotalEl.innerHTML = totalHtml;
 
-    // ensure checkout anchor is enabled
     const checkoutBtn = document.getElementById('openCheckoutFromCart');
     if (checkoutBtn) setButtonState(checkoutBtn, true, { activeBg: '#2d8f7c', activeTextColor: '#fff' });
 }
@@ -270,11 +266,65 @@ window.updateCartModalQuantity = function (idx, change) {
 }
 
 // --- Checkout Modal Functions ---
+/*
+ * New: Attempt to render PayPal buttons inside the checkout modal.
+ * - Uses the helper renderPayPalButtons(selector, opts) defined in static/js/paypal.js
+ * - Safe: only runs if window.paypal is available and the container exists.
+ * - Retries for a few seconds in case the SDK or helper haven't loaded yet.
+ */
+function tryRenderModalPayPal(opts = { currency: 'USD', successUrl: '/' }) {
+    const containerSelector = '#modal_paypal_button_container';
+    const container = document.querySelector(containerSelector);
+    if (!container) return; // nothing to do on pages without the modal container
+
+    // Avoid double-render
+    if (container.dataset.paypalRendered === '1') return;
+
+    // Poll for window.paypal and for the helper renderPayPalButtons
+    let tries = 0;
+    const maxTries = 50; // ~5 seconds (100ms interval)
+    const interval = setInterval(() => {
+        tries++;
+        if (typeof window.paypal !== 'undefined' && (typeof window.renderPayPalButtons === 'function' || typeof renderPayPalButtons === 'function')) {
+            try {
+                // Only render into an empty container
+                if (!container.innerHTML.trim()) {
+                    try {
+                        // prefer global named helper if available
+                        const helper = (typeof window.renderPayPalButtons === 'function') ? window.renderPayPalButtons : (typeof renderPayPalButtons === 'function' ? renderPayPalButtons : null);
+                        if (helper) {
+                            helper(containerSelector, opts);
+                            container.dataset.paypalRendered = '1';
+                        } else {
+                            console.warn('PayPal helper function not found despite SDK present.');
+                        }
+                    } catch (err) {
+                        console.warn('renderPayPalButtons threw:', err);
+                    }
+                } else {
+                    // already has content; mark as rendered and stop
+                    container.dataset.paypalRendered = '1';
+                }
+            } finally {
+                clearInterval(interval);
+            }
+        } else if (tries >= maxTries) {
+            clearInterval(interval);
+            // Give up silently; PayPal may not be needed on this page
+        }
+    }, 100);
+}
+
 function showCheckoutModal() {
     const bg = document.getElementById("checkoutModalBg");
     if (bg) bg.style.display = 'flex';
     fetchAndDisplayDiscountInfo();
     renderCheckoutView();
+
+    // Render PayPal buttons into the modal (if available). Use a short delay to ensure modal becomes visible.
+    setTimeout(() => {
+        tryRenderModalPayPal({ currency: 'USD', successUrl: '/' });
+    }, 200);
 }
 function hideCheckoutModal() {
     const bg = document.getElementById("checkoutModalBg");
@@ -285,33 +335,24 @@ function hideCheckoutModal() {
  * togglePaymentButtons
  * Updates the enabled/disabled state + visual styles for "Place Order" (checkoutBtn)
  * and "Buy Now" (buyNowBtn) based on the selected payment method.
- *
- * Applies to the checkout modal present in index.html (ids: paymentSelect, checkoutBtn, buyNowBtn)
- * and also to the modal variant (ids: modal_paymentSelect, modalPlaceOrderBtn, modalBuyNowBtn),
- * and fallback selectors commonly used across templates.
  */
 function togglePaymentButtons() {
-    // list of contexts we should update (main checkout, modal, etc)
     const contexts = [
         { paymentId: 'paymentSelect', placeId: 'checkoutBtn', buyId: 'buyNowBtn' },
         { paymentId: 'modal_paymentSelect', placeId: 'modalPlaceOrderBtn', buyId: 'modalBuyNowBtn' },
-        { paymentId: 'paymentSelect', placeId: 'checkoutBtn', buyId: 'buyNowBtn' } // redundancy ok
+        { paymentId: 'paymentSelect', placeId: 'checkoutBtn', buyId: 'buyNowBtn' }
     ];
 
     contexts.forEach(ctx => {
         const paymentEl = document.getElementById(ctx.paymentId);
         const placeBtn = document.getElementById(ctx.placeId);
         const buyBtn = document.getElementById(ctx.buyId);
-        const hintEl = document.getElementById((ctx.paymentId === 'modal_paymentSelect') ? 'modalPaymentHint' : 'modalPaymentHint') || document.getElementById('modalPaymentHint') || document.getElementById('paymentHint');
+        const hintEl = document.getElementById((ctx.paymentId === 'modal_paymentSelect') ? 'modalPaymentHint' : 'paymentHint') || document.getElementById('modalPaymentHint') || document.getElementById('paymentHint');
 
-        if (!paymentEl) {
-            // nothing to do for this context
-            return;
-        }
+        if (!paymentEl) return;
         const payment = paymentEl.value || 'Cash on Delivery';
 
         if (!cart || !cart.length) {
-            // no items: both disabled
             setButtonState(placeBtn, false, { disabledBg: '#ccc', reason: 'Cart is empty' });
             setButtonState(buyBtn, false, { disabledBg: '#ccc', reason: 'Cart is empty' });
             if (hintEl) hintEl.innerText = 'Your cart is empty.';
@@ -319,12 +360,10 @@ function togglePaymentButtons() {
         }
 
         if (payment === 'Cash on Delivery' || payment === 'Cash on delivery') {
-            // Place Order enabled, Buy Now disabled
             setButtonState(placeBtn, true, { activeBg: '#2d8f7c', activeTextColor: '#fff' });
             setButtonState(buyBtn, false, { disabledBg: '#bdbdbd', disabledTextColor: '#fff', reason: 'Buy Now requires card payment (Visa/Mastercard).' });
             if (hintEl) hintEl.innerText = 'Cash on Delivery selected — use "Place Order".';
         } else {
-            // Card payment: Buy Now enabled, Place Order disabled
             setButtonState(placeBtn, false, { disabledBg: '#bdbdbd', disabledTextColor: '#fff', reason: 'Place Order is disabled for card payments.' });
             setButtonState(buyBtn, true, { activeBg: '#4aa3ff', activeTextColor: '#fff' });
             if (hintEl) hintEl.innerText = `${payment} selected — use "Buy Now" to pay with card.`;
@@ -340,7 +379,6 @@ function getDiscountedTotal() {
     let total = getCartTotal();
     let discount = checkoutDiscountPercent || 0;
     if (appliedPromo && promoDiscountType && promoDiscountValue) {
-        // Promo code discount overrides checkout discount
         if (promoDiscountType === 'percent') {
             discount = promoDiscountValue;
             return total * (1 - (discount / 100));
@@ -366,12 +404,10 @@ function renderCheckoutView() {
         if (promoWrapper) promoWrapper.style.display = "none";
         const checkoutDiscDiv = document.getElementById('checkoutDiscountInfo');
         if (checkoutDiscDiv) checkoutDiscDiv.style.display = "none";
-        // disable buttons when empty
         togglePaymentButtons();
         return;
     }
 
-    // Build table rows for items (prices shown as integers for totals)
     let html = `<table>
         <thead>
             <tr>
@@ -421,7 +457,6 @@ function renderCheckoutView() {
     if (promoWrapper) promoWrapper.style.display = "block";
     if (orderForm) orderForm.style.display = "block";
 
-    // Update payment buttons state after rendering
     togglePaymentButtons();
 }
 
@@ -471,6 +506,7 @@ function createSignatureSection(products) {
         html += `<div style="padding:20px;color:#aaa;">No products available yet.</div>`;
     } else {
         for (const p of products) {
+            const productObj = { ...p, id: p.id || p._id || p.title };
             html += `
             <div class="product-card">
                 <div class="card-image-wrapper">
@@ -480,7 +516,7 @@ function createSignatureSection(products) {
                     <div class="card-name">${p.title}</div>
                     <small>$${p.price}</small>
                 </div>
-                <button class="add-cart-btn" data-product='${JSON.stringify({ ...p, id: p.id || p.title })}' aria-label="Buy Now">Buy Now</button>
+                <button class="add-cart-btn" data-product='${JSON.stringify(productObj)}' aria-label="Buy Now">Buy Now</button>
             </div>`;
         }
     }
@@ -504,6 +540,7 @@ function createSection(sectionKey, products) {
         html += `<div style="padding:20px;color:#aaa;">No products available yet.</div>`;
     } else {
         for (const p of products) {
+            const productObj = { ...p, id: p.id || p._id || p.title };
             html += `
             <div class="product-card">
                 <div class="card-image-wrapper">
@@ -513,7 +550,7 @@ function createSection(sectionKey, products) {
                     <div class="card-name">${p.title}</div>
                     <small>$${p.price}</small>
                 </div>
-                <button class="add-cart-btn" data-product='${JSON.stringify({ ...p, id: p.id || p.title })}' aria-label="Buy Now">Buy Now</button>
+                <button class="add-cart-btn" data-product='${JSON.stringify(productObj)}' aria-label="Buy Now">Buy Now</button>
             </div>`;
         }
     }
@@ -639,12 +676,19 @@ function attachProductCardListeners() {
         }
         let brand = productData?.brand || '';
         let title = productData?.title || productData?.name || '';
+        let productId = productData?.id || productData?._id || '';
 
         card.onclick = function (e) {
+            // if clicking on the buy/add button, let that button handle it
             if (e.target && e.target.classList && e.target.classList.contains('add-cart-btn')) return;
+
             if (brand && title) {
-                // Navigate to brand/product page if such a route exists in your app
-                window.location.href = `/brand/${encodeURIComponent(brand)}/product/${encodeURIComponent(title)}`;
+                // Navigate to brand_detail using querystring and include a product_id if available.
+                // Using query params keeps behavior consistent with existing templates that expect brand_detail?brand=...&product=...
+                const brandParam = encodeURIComponent(String(brand).replace(/\s+/g, '_'));
+                const productSlug = encodeURIComponent(String(title).replace(/\s+/g, '_'));
+                const idPart = productId ? `&product_id=${encodeURIComponent(productId)}` : '';
+                window.location.href = `/brand_detail?brand=${brandParam}&product=${productSlug}${idPart}`;
             }
         };
         card.onmouseenter = function () { if (brand && title) showProductDetailOverlay(card, brand, title); };
@@ -661,17 +705,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const cartModalClose = document.getElementById('cartModalCloseBtn');
     const cartModalBg = document.getElementById('cartModalBg');
 
-    // NOTE: changed click behavior so link navigation is allowed when cart modal is not present.
-    // If cartModalBg exists on the page we prevent default navigation and show the in-page modal.
-    // Otherwise we allow the anchor to behave as a normal link and navigate to /cart.
     if (cartBtn) cartBtn.addEventListener('click', (e) => {
         const modalExists = !!document.getElementById('cartModalBg');
         if (modalExists) {
             e.preventDefault();
             showCartModal();
         } else {
-            // allow default navigation to /cart (no preventDefault)
-            // For SPA behavior, you could implement client-side navigation here.
+            // allow default navigation to /cart
         }
     });
     if (cartModalClose) cartModalClose.addEventListener('click', hideCartModal);
@@ -685,7 +725,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (checkoutBg) checkoutBg.addEventListener('click', (e) => { if (e.target === e.currentTarget) hideCheckoutModal(); });
     if (paymentSelect) paymentSelect.addEventListener('change', togglePaymentButtons);
 
-    // modal payment select in cart.html or cart modal (different ids)
     const modalPaymentSelect = document.getElementById('modal_paymentSelect');
     if (modalPaymentSelect) modalPaymentSelect.addEventListener('change', togglePaymentButtons);
 
@@ -777,8 +816,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (!anyFailed) {
-                // Show confirmation modal and then clear cart
-                const orderTotal = getDiscountedTotal(); // pass numeric total
+                const orderTotal = getDiscountedTotal();
                 hideCheckoutModal();
                 showOrderConfirmation(orderTotal);
 
@@ -803,58 +841,127 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
-    // Buy Now button in checkout modal (simulate card payment)
+    // Buy Now button in checkout modal (initiate PayPal card flow if available)
     const buyNowBtn = document.getElementById('buyNowBtn');
     if (buyNowBtn) {
-        buyNowBtn.addEventListener('click', function () {
-            const orderTotal = getDiscountedTotal();
-            hideCheckoutModal();
-            showOrderConfirmation(orderTotal);
+        buyNowBtn.addEventListener('click', async function () {
+            // Collect customer info from checkout fields so we can attach it to the PayPal return/capture
+            const customer = {};
+            const custEl = document.getElementById('customer');
+            const emailEl = document.getElementById('email');
+            const phoneEl = document.getElementById('phone');
+            const addressEl = document.getElementById('address');
+            if (custEl) customer.name = custEl.value || '';
+            if (emailEl) customer.email = emailEl.value || '';
+            if (phoneEl) customer.phone = phoneEl.value || '';
+            if (addressEl) customer.address = addressEl.value || '';
 
-            setTimeout(() => {
-                cart = [];
-                appliedPromo = null;
-                promoDiscountValue = 0;
-                promoDiscountType = null;
-                saveCart();
-                renderCheckoutView();
-                updateCartCount();
-                if (orderForm) orderForm.reset();
-                const promoInput = document.getElementById('promoInput');
-                if (promoInput) promoInput.value = '';
-                const promoMsg = document.getElementById('promoMsg');
-                if (promoMsg) promoMsg.textContent = '';
-                hideOrderConfirmation();
-            }, 4000);
+            try { localStorage.setItem('paypal_customer', JSON.stringify(customer)); } catch (e) { /* ignore */ }
+
+            // Build items for server
+            const itemsForServer = cart.map(i => ({
+                id: i.id || i.product_id || '',
+                title: i.title || i.name || '',
+                unit_price: Number(i.price || 0),
+                quantity: Number(i.qty || i.quantity || 1),
+                currency: 'USD'
+            }));
+            try { localStorage.setItem('paypal_items', JSON.stringify(itemsForServer)); } catch (e) { /* ignore */ }
+
+            // Initiate card checkout using the helper provided by static/js/paypal.js
+            if (typeof window.initiateCardCheckout === 'function') {
+                try {
+                    await window.initiateCardCheckout(itemsForServer, { currency: 'USD', returnUrl: window.location.origin + '/paypal/return' });
+                    // The call should redirect to PayPal. Execution will stop here if redirect occurs.
+                } catch (err) {
+                    console.error('Buy Now (card) initiation failed', err);
+                    // Fall back to showing an error message and re-enable buttons
+                    const orderMsg = document.getElementById('orderMsg');
+                    if (orderMsg) orderMsg.innerHTML = '<div style="color:#e74c3c;">Failed to initiate payment. Please try again.</div>';
+                    togglePaymentButtons();
+                }
+            } else {
+                // If helper not available, fall back to simulated success (keeps legacy behavior)
+                const orderTotal = getDiscountedTotal();
+                hideCheckoutModal();
+                showOrderConfirmation(orderTotal);
+                setTimeout(() => {
+                    cart = [];
+                    appliedPromo = null;
+                    promoDiscountValue = 0;
+                    promoDiscountType = null;
+                    saveCart();
+                    renderCartModal();
+                    updateCartCount();
+                    if (orderForm) orderForm.reset();
+                    const promoInput = document.getElementById('promoInput');
+                    if (promoInput) promoInput.value = '';
+                    const promoMsg = document.getElementById('promoMsg');
+                    if (promoMsg) promoMsg.textContent = '';
+                    hideOrderConfirmation();
+                }, 4000);
+            }
         });
     }
 
-    // modalBuyNow in cart.html/modal variant
     const modalBuyNow = document.getElementById('modalBuyNowBtn');
     if (modalBuyNow) {
-        modalBuyNow.addEventListener('click', function () {
-            // mimic card payment
-            const orderTotal = getDiscountedTotal();
-            const modalOrderForm = document.getElementById('modalOrderForm');
-            if (modalOrderForm) modalOrderForm.reset();
-            hideCheckoutModal();
-            showOrderConfirmation(orderTotal);
-            setTimeout(() => {
-                cart = [];
-                appliedPromo = null;
-                promoDiscountValue = 0;
-                promoDiscountType = null;
-                saveCart();
-                renderCartModal();
-                updateCartCount();
-                hideOrderConfirmation();
-                const mPromo = document.getElementById('modal_promo_code');
-                if (mPromo) mPromo.value = '';
-            }, 3000);
+        modalBuyNow.addEventListener('click', async function () {
+            // Collect modal form fields
+            const customer = {};
+            const custEl = document.getElementById('modal_customer');
+            const emailEl = document.getElementById('modal_email');
+            const phoneEl = document.getElementById('modal_phone');
+            const addressEl = document.getElementById('modal_address');
+            if (custEl) customer.name = custEl.value || '';
+            if (emailEl) customer.email = emailEl.value || '';
+            if (phoneEl) customer.phone = phoneEl.value || '';
+            if (addressEl) customer.address = addressEl.value || '';
+
+            try { localStorage.setItem('paypal_customer', JSON.stringify(customer)); } catch (e) { /* ignore */ }
+
+            const cartLocal = JSON.parse(localStorage.getItem('cart') || "[]");
+            const itemsForServer = cartLocal.map(i => ({
+                id: i.id || i.product_id || '',
+                title: i.title || i.name || '',
+                unit_price: Number(i.price || 0),
+                quantity: Number(i.qty || i.quantity || 1),
+                currency: 'USD'
+            }));
+            try { localStorage.setItem('paypal_items', JSON.stringify(itemsForServer)); } catch (e) { /* ignore */ }
+
+            if (typeof window.initiateCardCheckout === 'function') {
+                try {
+                    await window.initiateCardCheckout(itemsForServer, { currency: 'USD', returnUrl: window.location.origin + '/paypal/return' });
+                } catch (err) {
+                    console.error('Modal Buy Now (card) initiation failed', err);
+                    const orderMsg = document.getElementById('modalOrderMsg');
+                    if (orderMsg) orderMsg.innerHTML = '<div style="color:#e74c3c;">Failed to initiate payment. Please try again.</div>';
+                    updateModalPaymentButtonsState();
+                }
+            } else {
+                // fallback simulation to keep legacy behavior if PayPal helper missing
+                const orderTotal = getDiscountedTotal();
+                const modalOrderForm = document.getElementById('modalOrderForm');
+                if (modalOrderForm) modalOrderForm.reset();
+                hideCheckoutModal();
+                showOrderConfirmation(orderTotal);
+                setTimeout(() => {
+                    cart = [];
+                    appliedPromo = null;
+                    promoDiscountValue = 0;
+                    promoDiscountType = null;
+                    saveCart();
+                    renderCartModal();
+                    updateCartCount();
+                    hideOrderConfirmation();
+                    const mPromo = document.getElementById('modal_promo_code');
+                    if (mPromo) mPromo.value = '';
+                }, 3000);
+            }
         });
     }
 
-    // Order confirmation modal close handlers
     const orderConfirmationClose = document.getElementById('orderConfirmationModalCloseBtn');
     const orderConfirmationBg = document.getElementById('orderConfirmationModalBg');
     if (orderConfirmationClose) orderConfirmationClose.addEventListener('click', hideOrderConfirmation);
@@ -894,4 +1001,28 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (err) {
         console.warn('Hero audio init failed', err);
     }
+
+    // Attempt to render modal PayPal on page load too (if SDK already loaded)
+    tryRenderModalPayPal({ currency: 'USD', successUrl: '/' });
 });
+
+// --- Compatibility aliases ---
+// Some templates call openCheckoutModal / closeCheckoutModal; expose aliases to keep pages working.
+if (typeof window !== 'undefined') {
+    // Checkout modal aliases
+    window.openCheckoutModal = window.openCheckoutModal || function () { try { showCheckoutModal(); } catch (e) { console.warn('openCheckoutModal alias failed', e); } };
+    window.closeCheckoutModal = window.closeCheckoutModal || function () { try { hideCheckoutModal(); } catch (e) { console.warn('closeCheckoutModal alias failed', e); } };
+
+    // Cart modal aliases
+    window.openCartModal = window.openCartModal || function () { try { showCartModal(); } catch (e) { console.warn('openCartModal alias failed', e); } };
+    window.closeCartModal = window.closeCartModal || function () { try { hideCartModal(); } catch (e) { console.warn('closeCartModal alias failed', e); } };
+
+    // Additional handy exposures
+    window.showCheckoutModal = window.showCheckoutModal || showCheckoutModal;
+    window.hideCheckoutModal = window.hideCheckoutModal || hideCheckoutModal;
+    window.showCartModal = window.showCartModal || showCartModal;
+    window.hideCartModal = window.hideCartModal || hideCartModal;
+    window.renderCartModal = window.renderCartModal || renderCartModal;
+    window.renderCheckoutView = window.renderCheckoutView || renderCheckoutView;
+    // existing function already exposes updateCartModalQuantity and removeCheckoutItem globally where needed
+}

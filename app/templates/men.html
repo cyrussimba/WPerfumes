@@ -26,31 +26,26 @@
                     <li>Shop Now Pay Later</li>
                     <li>Free Delivery Above $50</li>
                     <li>10% Discount if Cash on Delivery</li>
+                    <li>Trusted Products</li>
+                    <li>Shop With Us Now</li>
                 </ul>
             </div>
             <div class="city-selector" aria-hidden="false">
-                <a href="{{ url_for('brand') }}" class="shop-locator">Store Locator</a>
-                <label for="city-dropdown" class="city-label">Shop from</label>
-                <select id="city-dropdown" aria-label="Select your shopping country">
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="UAE">UAE</option>
-                    <option value="Kuwait">Kuwait</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Bahrain">Bahrain</option>
-                    <option value="Turkey">Turkey</option>
-                </select>
+                <a class="shop-locator" href="{{ url_for('main.brand') }}">Store Locator</a>
             </div>
         </header>
     </div>
 
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div style="display:flex;align-items:center;gap:12px;">
-            <a class="brand-logo" href="{{ url_for('index') }}">WPerfumes</a>
+            <a class="brand-logo" href="{{ url_for('main.index') }}">WPerfumes</a>
             <ul class="nav-tabs" role="menubar" aria-label="Site Menu">
-                <li><a href="{{ url_for('index') }}">Home</a></li>
-                <li><a href="{{ url_for('men') }}">Men</a></li>
-                <li><a href="{{ url_for('women') }}">Women</a></li>
-                <li><a href="{{ url_for('beauty') }}">Beauty</a></li>
+                <li><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li><a href="{{ url_for('main.men') }}">Men</a></li>
+                <li><a href="{{ url_for('main.women') }}">Women</a></li>
+                <li><a href="{{ url_for('main.beauty') }}">Beauty</a></li>
+                <li><a href="{{ url_for('main.history') }}">History</a></li>
+                <li><a href="{{ url_for('main.about') }}">About Us</a></li>
             </ul>
         </div>
 
@@ -62,7 +57,7 @@
         </div>
 
         <div class="navbar-right">
-            <a id="cartBtn" class="cart-btn" href="{{ url_for('cart') }}" aria-label="Open cart">
+            <a id="cartBtn" class="cart-btn" href="{{ url_for('main.cart') }}" aria-label="Open cart">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="9" cy="21" r="1"></circle>
@@ -74,9 +69,9 @@
             </a>
 
             <div class="login-menu-container">
-                <a href="{{ url_for('login_page') }}" class="login-btn">Login</a>
+                <a href="{{ url_for('main.login_page') }}" class="login-btn">Login</a>
                 <div class="login-submenu">
-                    <a href="{{ url_for('signup') }}" class="signup-btn">Sign Up</a>
+                    <a href="{{ url_for('main.signup') }}" class="signup-btn">Sign Up</a>
                 </div>
             </div>
         </div>
@@ -218,7 +213,7 @@
             <div class="cart-modal-footer">
                 <div id="cartModalTotal" class="cart-modal-total"></div>
                 <div style="flex:1"></div>
-                <a id="openCheckoutFromCart" class="btn-primary" href="{{ url_for('checkout') }}"
+                <a id="openCheckoutFromCart" class="btn-primary" href="{{ url_for('main.checkout') }}"
                     style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Checkout</a>
             </div>
         </div>
@@ -282,6 +277,12 @@
             <div id="orderConfirmationMsg" style="margin:40px 0 15px 0;"></div>
         </div>
     </div>
+
+    <script>
+        // Ensure Buy Now handlers that exist in men.js use the same initiateCardCheckout helper.
+        // men.js attaches buy buttons which call addToCart -> openCheckoutModal, so the actual "Buy Now"
+        // actions are performed by the checkout modal handlers (main.js). No further changes are required here.
+    </script>
 </body>
 
 </html>

@@ -1,5 +1,8 @@
+// static/js/admin.js
 // Use relative API base so code works in development and when deployed (Render, etc.)
 const API = "/api";
+const CONTENT_API = "/content-api"; // content backend prefix for stories and content admin
+
 // Helper: normalize returned image paths to usable browser URLs
 function toStaticUrl(url) {
     if (!url) return '/static/images/placeholder.jpg';
@@ -9,26 +12,46 @@ function toStaticUrl(url) {
     return `/static/${url}`;
 }
 
+// Unified fetch wrapper that ensures session cookie is included and sets JSON headers for object bodies.
+// url: full URL string (e.g. `${API}/brands`), opts: same shape as fetch options.
+async function apiFetch(url, opts = {}) {
+    opts = Object.assign({}, opts);
+    // Ensure credentials are included so the browser sends cookies
+    opts.credentials = opts.credentials || 'include';
+
+    // If body is a plain object (not a string), stringify and set header
+    if (opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData)) {
+        opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+        opts.body = JSON.stringify(opts.body);
+    } else if (opts.body && typeof opts.body === 'string') {
+        // If caller passed a string and no Content-Type was provided, set JSON header
+        opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    }
+
+    return fetch(url, opts);
+}
+
+// --- UI wiring ---
 let user = null;
-document.getElementById('tabBrands').onclick = () => switchTab('brands');
-document.getElementById('tabProducts').onclick = () => switchTab('products');
-document.getElementById('tabHomepage').onclick = () => switchTab('homepage');
-document.getElementById('tabTopPicks').onclick = () => switchTab('topPicks');
-document.getElementById('tabCoupons').onclick = () => switchTab('coupons');
-document.getElementById('tabOrders').onclick = () => switchTab('orders');
+if (document.getElementById('tabBrands')) document.getElementById('tabBrands').onclick = () => switchTab('brands');
+if (document.getElementById('tabProducts')) document.getElementById('tabProducts').onclick = () => switchTab('products');
+if (document.getElementById('tabHomepage')) document.getElementById('tabHomepage').onclick = () => switchTab('homepage');
+if (document.getElementById('tabTopPicks')) document.getElementById('tabTopPicks').onclick = () => switchTab('topPicks');
+if (document.getElementById('tabCoupons')) document.getElementById('tabCoupons').onclick = () => switchTab('coupons');
+if (document.getElementById('tabOrders')) document.getElementById('tabOrders').onclick = () => switchTab('orders');
+
 function switchTab(tab) {
-    document.getElementById('tabBrands').classList.toggle('active', tab === 'brands');
-    document.getElementById('tabProducts').classList.toggle('active', tab === 'products');
-    document.getElementById('tabHomepage').classList.toggle('active', tab === 'homepage');
-    document.getElementById('tabTopPicks').classList.toggle('active', tab === 'topPicks');
-    document.getElementById('tabCoupons').classList.toggle('active', tab === 'coupons');
-    document.getElementById('tabOrders').classList.toggle('active', tab === 'orders');
-    document.getElementById('brandsCard').style.display = tab === 'brands' ? '' : 'none';
-    document.getElementById('productsCard').style.display = tab === 'products' ? '' : 'none';
-    document.getElementById('homepageCard').style.display = tab === 'homepage' ? '' : 'none';
-    document.getElementById('topPicksCard').style.display = tab === 'topPicks' ? '' : 'none';
-    document.getElementById('couponsCard').style.display = tab === 'coupons' ? '' : 'none';
-    document.getElementById('ordersCard').style.display = tab === 'orders' ? '' : 'none';
+    const tabs = ['brands', 'products', 'homepage', 'topPicks', 'coupons', 'orders'];
+    tabs.forEach(t => {
+        const el = document.getElementById('tab' + (t.charAt(0).toUpperCase() + t.slice(1)));
+        if (el) el.classList.toggle('active', t === tab);
+    });
+    const cards = { brands: 'brandsCard', products: 'productsCard', homepage: 'homepageCard', topPicks: 'topPicksCard', coupons: 'couponsCard', orders: 'ordersCard' };
+    Object.entries(cards).forEach(([k, v]) => {
+        const el = document.getElementById(v);
+        if (el) el.style.display = (k === tab) ? '' : 'none';
+    });
+
     const pageTitleEl = document.getElementById('pageTitle');
     if (pageTitleEl) {
         pageTitleEl.textContent =
@@ -47,100 +70,108 @@ function switchTab(tab) {
     else if (tab === 'orders') loadOrders();
 }
 
-// ---------- Modified login handler (better debugging output + credentials included) ----------
-document.getElementById('loginForm').onsubmit = async e => {
-    e.preventDefault();
-    const username = document.getElementById('username').value, password = document.getElementById('password').value;
-    const loginErrorEl = document.getElementById('loginError');
-    loginErrorEl.style.display = 'none';
-    try {
-        // include credentials in case backend uses cookie/session or requires them
-        const res = await fetch(`${API}/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: 'include',
-            body: JSON.stringify({ username, password })
-        });
+// ---------- Login handler ----------
+if (document.getElementById('loginForm')) {
+    document.getElementById('loginForm').onsubmit = async e => {
+        e.preventDefault();
+        const username = document.getElementById('username').value, password = document.getElementById('password').value;
+        const loginErrorEl = document.getElementById('loginError');
+        if (loginErrorEl) loginErrorEl.style.display = 'none';
+        try {
+            const res = await apiFetch(`${API}/auth/login`, {
+                method: "POST",
+                body: { username, password }
+            });
 
-        // log details so you can see status + headers in console
-        console.log('Login response status:', res.status);
-        // attempt to read text (safe even if JSON)
-        const bodyText = await res.text().catch(() => '');
-        console.log('Login response body:', bodyText);
+            console.log('Login response status:', res.status);
+            const bodyText = await res.text().catch(() => '');
+            console.log('Login response body:', bodyText);
 
-        if (!res.ok) {
-            // show server response text (usually contains reason)
-            loginErrorEl.textContent = `Login failed (${res.status}): ${bodyText || res.statusText}`;
-            loginErrorEl.style.display = 'block';
-            alert('Login failed: ' + (bodyText || res.statusText));
-            return;
+            if (!res.ok) {
+                if (loginErrorEl) {
+                    loginErrorEl.textContent = `Login failed (${res.status}): ${bodyText || res.statusText}`;
+                    loginErrorEl.style.display = 'block';
+                }
+                alert('Login failed: ' + (bodyText || res.statusText));
+                return;
+            }
+
+            let json = null;
+            try { json = JSON.parse(bodyText); } catch (err) { json = null; }
+            user = json && json.user ? json.user : null;
+            const loginBg = document.getElementById('loginBg');
+            if (loginBg) loginBg.style.display = 'none';
+            const userInfo = document.getElementById('userInfo');
+            if (userInfo) userInfo.style.display = '';
+            const usernameInfo = document.getElementById('usernameInfo');
+            if (usernameInfo) usernameInfo.textContent = user ? user.username : username;
+            switchTab('brands');
+        } catch (err) {
+            console.error('Network/login error', err);
+            if (loginErrorEl) {
+                loginErrorEl.textContent = 'Network error: ' + err.message;
+                loginErrorEl.style.display = 'block';
+            } else {
+                alert('Network error during login: ' + err.message);
+            }
         }
-
-        // success — parse JSON if possible
-        let json = null;
-        try { json = JSON.parse(bodyText); } catch (err) { json = null; }
-        user = json && json.user ? json.user : null;
-        document.getElementById('loginBg').style.display = 'none';
-        const userInfo = document.getElementById('userInfo');
-        if (userInfo) userInfo.style.display = '';
-        const usernameInfo = document.getElementById('usernameInfo');
-        if (usernameInfo) usernameInfo.textContent = user ? user.username : username;
-        switchTab('brands');
-    } catch (err) {
-        console.error('Network/login error', err);
-        loginErrorEl.textContent = 'Network error: ' + err.message;
-        loginErrorEl.style.display = 'block';
-        alert('Network error during login: ' + err.message);
-    }
-};
+    };
+}
 // -----------------------------------------------------------------------------------------
 
-document.getElementById('logoutBtn').onclick = async () => {
-    try {
-        await fetch(`${API}/auth/logout`, { method: "POST" });
-    } catch (e) { /* ignore */ }
-    location.reload();
-};
+if (document.getElementById('logoutBtn')) {
+    document.getElementById('logoutBtn').onclick = async () => {
+        try {
+            await apiFetch(`${API}/auth/logout`, { method: "POST" });
+        } catch (e) { /* ignore */ }
+        location.reload();
+    };
+}
+
 // ----------- Site Settings Discount JS -----------
 async function loadDiscountSetting() {
     try {
-        const r = await fetch(`${API}/settings/checkout_discount`);
+        const r = await apiFetch(`${API}/settings/checkout_discount`);
         if (!r.ok) return;
         const js = await r.json();
-        document.getElementById('checkout_discount_percent').value = js.percent ?? 0;
+        const el = document.getElementById('checkout_discount_percent');
+        if (el) el.value = js.percent ?? 0;
     } catch (err) {
         console.warn('Failed to load discount setting', err);
     }
 }
-document.getElementById('discountSettingForm').onsubmit = async function (e) {
-    e.preventDefault();
-    const percent = parseFloat(document.getElementById('checkout_discount_percent').value || 0);
-    const msg = document.getElementById('discountSaveMsg');
-    msg.textContent = "Saving...";
-    try {
-        const r = await fetch(`${API}/settings/checkout_discount`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ percent })
-        });
-        if (r.ok) {
-            msg.textContent = "Saved!";
-        } else {
-            msg.textContent = "Failed!";
+if (document.getElementById('discountSettingForm')) {
+    document.getElementById('discountSettingForm').onsubmit = async function (e) {
+        e.preventDefault();
+        const percent = parseFloat(document.getElementById('checkout_discount_percent').value || 0);
+        const msg = document.getElementById('discountSaveMsg');
+        if (msg) msg.textContent = "Saving...";
+        try {
+            const r = await apiFetch(`${API}/settings/checkout_discount`, {
+                method: "PUT",
+                body: { percent }
+            });
+            if (r.ok) {
+                if (msg) msg.textContent = "Saved!";
+            } else {
+                if (msg) msg.textContent = "Failed!";
+            }
+        } catch {
+            if (msg) msg.textContent = "Failed!";
         }
-    } catch {
-        msg.textContent = "Failed!";
-    }
-    setTimeout(() => { msg.textContent = ""; }, 1800);
-};
-loadDiscountSetting();
+        setTimeout(() => { if (msg) msg.textContent = ""; }, 1800);
+    };
+    loadDiscountSetting();
+}
+
 // ----------- Brands -----------
 async function loadBrands() {
     try {
-        const res = await fetch(`${API}/brands`);
+        const res = await apiFetch(`${API}/brands`);
         if (!res.ok) return;
         const brands = await res.json();
         const tbody = document.querySelector('#brandsTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         brands.forEach(b => {
             const tr = document.createElement('tr');
@@ -159,16 +190,21 @@ async function loadBrands() {
         console.warn('loadBrands error', err);
     }
 }
-document.getElementById('addBrandBtn').onclick = () => showBrandModal();
+if (document.getElementById('addBrandBtn')) {
+    document.getElementById('addBrandBtn').onclick = () => showBrandModal();
+}
 window.editBrand = function (name) {
-    fetch(`${API}/brands`).then(res => res.json()).then(brands => {
+    apiFetch(`${API}/brands`).then(res => res.json()).then(brands => {
         const brand = brands.find(b => b.name === name);
         showBrandModal(brand);
     }).catch(err => console.warn(err));
 };
 function showBrandModal(brand) {
-    document.getElementById('modalBg').style.display = 'flex';
-    document.getElementById('modalContent').innerHTML = `
+    const modalBg = document.getElementById('modalBg');
+    const modalContent = document.getElementById('modalContent');
+    if (!modalBg || !modalContent) return;
+    modalBg.style.display = 'flex';
+    modalContent.innerHTML = `
             <h3>${brand ? "Edit" : "Add"} Brand</h3>
             <form id="brandForm">
                 <label>Name</label>
@@ -183,15 +219,16 @@ function showBrandModal(brand) {
                 </div>
             </form>
         `;
-    document.getElementById('brandForm').onsubmit = async e => {
+    const brandForm = document.getElementById('brandForm');
+    brandForm.onsubmit = async e => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(e.target).entries());
         try {
             let res;
             if (!brand) {
-                res = await fetch(`${API}/brands`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                res = await apiFetch(`${API}/brands`, { method: "POST", body: data });
             } else {
-                res = await fetch(`${API}/brands/${encodeURIComponent(brand.name)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                res = await apiFetch(`${API}/brands/${encodeURIComponent(brand.name)}`, { method: "PUT", body: data });
             }
             if (!res.ok) {
                 const err = await res.text();
@@ -207,18 +244,20 @@ function showBrandModal(brand) {
 window.deleteBrand = async function (name) {
     if (confirm("Delete brand " + name + "?")) {
         try {
-            await fetch(`${API}/brands/${encodeURIComponent(name)}`, { method: "DELETE" });
+            await apiFetch(`${API}/brands/${encodeURIComponent(name)}`, { method: "DELETE" });
         } catch (e) { /* ignore */ }
         loadBrands();
     }
 };
+
 // ----------- Products -----------
 async function loadProducts() {
     try {
-        const res = await fetch(`${API}/products`);
+        const res = await apiFetch(`${API}/products`);
         if (!res.ok) return;
         const products = await res.json();
         const tbody = document.querySelector('#productsTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         products.forEach(p => {
             let thumbnailImgs = '';
@@ -249,17 +288,22 @@ async function loadProducts() {
         console.warn('loadProducts error', err);
     }
 }
-document.getElementById('addProductBtn').onclick = () => showProductModal();
+if (document.getElementById('addProductBtn')) {
+    document.getElementById('addProductBtn').onclick = () => showProductModal();
+}
 window.editProduct = function (id) {
-    fetch(`${API}/products`).then(res => res.json()).then(products => {
+    apiFetch(`${API}/products`).then(res => res.json()).then(products => {
         const p = products.find(x => x.id === id);
         showProductModal(p);
     }).catch(err => console.warn(err));
 };
 function showProductModal(product) {
-    fetch(`${API}/brands`).then(res => res.json()).then(brands => {
-        document.getElementById('modalBg').style.display = 'flex';
-        document.getElementById('modalContent').innerHTML = `
+    apiFetch(`${API}/brands`).then(res => res.json()).then(brands => {
+        const modalBg = document.getElementById('modalBg');
+        const modalContent = document.getElementById('modalContent');
+        if (!modalBg || !modalContent) return;
+        modalBg.style.display = 'flex';
+        modalContent.innerHTML = `
                 <h3>${product ? "Edit" : "Add"} Product</h3>
                 <form id="productForm">
                     <label>Title</label>
@@ -308,13 +352,13 @@ function showProductModal(product) {
                     data.quantity = parseInt(data.quantity, 10) || 0;
                     data.tags = data.tags || '';
                     data.thumbnails = data.thumbnails || '';
-                    res = await fetch(`${API}/products/${encodeURIComponent(product.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                    res = await apiFetch(`${API}/products/${encodeURIComponent(product.id)}`, { method: "PUT", body: data });
                 } else {
                     data.id = 'PRD' + Math.floor(Date.now() / 10000).toString().slice(-4) + Math.floor(Math.random() * 99).toString().padStart(2, '0');
                     data.quantity = parseInt(data.quantity, 10) || 0;
                     data.tags = data.tags || '';
                     data.thumbnails = data.thumbnails || '';
-                    res = await fetch(`${API}/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                    res = await apiFetch(`${API}/products`, { method: "POST", body: data });
                 }
                 if (!res.ok) {
                     const err = await res.text();
@@ -331,15 +375,16 @@ function showProductModal(product) {
 window.deleteProduct = async function (id) {
     if (confirm("Delete this product?")) {
         try {
-            await fetch(`${API}/products/${encodeURIComponent(id)}`, { method: "DELETE" });
+            await apiFetch(`${API}/products/${encodeURIComponent(id)}`, { method: "DELETE" });
         } catch (e) { /* ignore */ }
         loadProducts();
     }
 };
+
 // ----------- Homepage Products -----------
 async function loadHomepageProducts() {
     try {
-        const res = await fetch(`${API}/homepage-products`);
+        const res = await apiFetch(`${API}/homepage-products`);
         if (!res.ok) return;
         const all = await res.json();
         let allRows = [];
@@ -349,6 +394,7 @@ async function loadHomepageProducts() {
             }
         }
         const tbody = document.querySelector('#homepageTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         allRows.forEach(hp => {
             const tr = document.createElement('tr');
@@ -369,9 +415,11 @@ async function loadHomepageProducts() {
         console.warn('loadHomepageProducts error', err);
     }
 }
-document.getElementById('addHomepageBtn').onclick = () => showHomepageModal();
+if (document.getElementById('addHomepageBtn')) {
+    document.getElementById('addHomepageBtn').onclick = () => showHomepageModal();
+}
 window.editHomepageProduct = function (homepage_id) {
-    fetch(`${API}/homepage-products`).then(res => res.json()).then(all => {
+    apiFetch(`${API}/homepage-products`).then(res => res.json()).then(all => {
         let found;
         for (const section in all) {
             found = all[section].find(hp => hp.homepage_id == homepage_id);
@@ -381,9 +429,12 @@ window.editHomepageProduct = function (homepage_id) {
     }).catch(err => console.warn(err));
 };
 function showHomepageModal(hp, homepage_id) {
-    fetch(`${API}/products`).then(res => res.json()).then(products => {
-        document.getElementById('modalBg').style.display = 'flex';
-        document.getElementById('modalContent').innerHTML = `
+    apiFetch(`${API}/products`).then(res => res.json()).then(products => {
+        const modalBg = document.getElementById('modalBg');
+        const modalContent = document.getElementById('modalContent');
+        if (!modalBg || !modalContent) return;
+        modalBg.style.display = 'flex';
+        modalContent.innerHTML = `
                     <h3>${hp ? "Edit" : "Add"} Homepage Product</h3>
                     <form id="homepageForm">
                         <label>Section</label>
@@ -417,9 +468,9 @@ function showHomepageModal(hp, homepage_id) {
             data.visible = data.visible === "true";
             try {
                 if (!hp) {
-                    await fetch(`${API}/homepage-products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                    await apiFetch(`${API}/homepage-products`, { method: "POST", body: data });
                 } else {
-                    await fetch(`${API}/homepage-products/${encodeURIComponent(homepage_id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                    await apiFetch(`${API}/homepage-products/${encodeURIComponent(homepage_id)}`, { method: "PUT", body: data });
                 }
             } catch (err) {
                 console.warn(err);
@@ -432,18 +483,20 @@ function showHomepageModal(hp, homepage_id) {
 window.deleteHomepageProduct = async function (homepage_id) {
     if (confirm("Delete homepage product?")) {
         try {
-            await fetch(`${API}/homepage-products/${encodeURIComponent(homepage_id)}`, { method: "DELETE" });
+            await apiFetch(`${API}/homepage-products/${encodeURIComponent(homepage_id)}`, { method: "DELETE" });
         } catch (e) { /* ignore */ }
         loadHomepageProducts();
     }
 };
+
 // ----------- Top Picks -----------
 async function loadTopPicks() {
     try {
-        const res = await fetch(`${API}/top-picks`);
+        const res = await apiFetch(`${API}/top-picks`);
         if (!res.ok) return;
         const topPicks = await res.json();
         const tbody = document.querySelector('#topPicksTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         topPicks.forEach(tp => {
             const tr = document.createElement('tr');
@@ -465,17 +518,22 @@ async function loadTopPicks() {
         console.warn('loadTopPicks error', err);
     }
 }
-document.getElementById('addTopPickBtn').onclick = () => showTopPickModal();
+if (document.getElementById('addTopPickBtn')) {
+    document.getElementById('addTopPickBtn').onclick = () => showTopPickModal();
+}
 window.editTopPick = function (id) {
-    fetch(`${API}/top-picks`).then(res => res.json()).then(topPicks => {
+    apiFetch(`${API}/top-picks`).then(res => res.json()).then(topPicks => {
         const tp = topPicks.find(x => x.id === id);
         showTopPickModal(tp);
     }).catch(err => console.warn(err));
 };
 function showTopPickModal(tp) {
-    fetch(`${API}/products`).then(res => res.json()).then(products => {
-        document.getElementById('modalBg').style.display = 'flex';
-        document.getElementById('modalContent').innerHTML = `
+    apiFetch(`${API}/products`).then(res => res.json()).then(products => {
+        const modalBg = document.getElementById('modalBg');
+        const modalContent = document.getElementById('modalContent');
+        if (!modalBg || !modalContent) return;
+        modalBg.style.display = 'flex';
+        modalContent.innerHTML = `
                     <h3>${tp ? "Edit" : "Add"} Top Pick</h3>
                     <form id="topPickForm">
                         <label>Product</label>
@@ -501,35 +559,26 @@ function showTopPickModal(tp) {
             data.rank = parseInt(data.rank, 10);
             try {
                 if (!tp) {
-                    // Create top pick and auto-push it so the front-end (men.html) shows it immediately
-                    const createRes = await fetch(`${API}/top-picks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                    const createRes = await apiFetch(`${API}/top-picks`, { method: "POST", body: data });
                     if (!createRes.ok) {
                         const err = await createRes.text();
                         alert('Save failed: ' + err);
                     } else {
-                        // Expect backend to return created object with id
                         let createdObj = null;
-                        try {
-                            createdObj = await createRes.json();
-                        } catch (jsonErr) {
-                            console.warn('Created top-pick did not return JSON or had no id', jsonErr);
-                        }
-                        // If we have an id, attempt to push automatically
+                        try { createdObj = await createRes.json(); } catch (jsonErr) { console.warn(jsonErr); }
                         if (createdObj && createdObj.id) {
                             try {
-                                await fetch(`${API}/top-picks/${encodeURIComponent(createdObj.id)}/push`, { method: "POST" });
-                                // optional: notify admin that it was pushed
+                                await apiFetch(`${API}/top-picks/${encodeURIComponent(createdObj.id)}/push`, { method: "POST" });
                                 console.log('Top Pick created and pushed:', createdObj.id);
                             } catch (pushErr) {
                                 console.warn('Top Pick created but automatic push failed', pushErr);
                             }
                         } else {
-                            // Fallback: if backend returns no JSON id, you may need to manually push from list
                             console.log('Top Pick created; if it does not appear on the frontend, use the Publish button in Top Picks list to push it.');
                         }
                     }
                 } else {
-                    const res = await fetch(`${API}/top-picks/${encodeURIComponent(tp.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                    const res = await apiFetch(`${API}/top-picks/${encodeURIComponent(tp.id)}`, { method: "PUT", body: data });
                     if (!res.ok) {
                         const err = await res.text();
                         alert('Save failed: ' + err);
@@ -547,26 +596,28 @@ function showTopPickModal(tp) {
 window.deleteTopPick = async function (id) {
     if (confirm("Delete this Top Pick?")) {
         try {
-            await fetch(`${API}/top-picks/${encodeURIComponent(id)}`, { method: "DELETE" });
+            await apiFetch(`${API}/top-picks/${encodeURIComponent(id)}`, { method: "DELETE" });
         } catch (e) { /* ignore */ }
         loadTopPicks();
     }
 };
 window.pushTopPick = async function (id) {
     try {
-        await fetch(`${API}/top-picks/${encodeURIComponent(id)}/push`, { method: "POST" });
+        await apiFetch(`${API}/top-picks/${encodeURIComponent(id)}/push`, { method: "POST" });
         alert("Top Pick pushed to front end!");
     } catch (e) {
         alert("Failed to push Top Pick.");
     }
 };
+
 // ----------- Promotions -----------
 async function loadCoupons() {
     try {
-        const res = await fetch(`${API}/coupons`);
+        const res = await apiFetch(`${API}/coupons`);
         if (!res.ok) return;
         const promos = await res.json();
         const tbody = document.querySelector('#couponsTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         promos.forEach(c => {
             const tr = document.createElement('tr');
@@ -589,16 +640,21 @@ async function loadCoupons() {
         console.warn('loadCoupons error', err);
     }
 }
-document.getElementById('addCouponBtn').onclick = () => showCouponModal();
+if (document.getElementById('addCouponBtn')) {
+    document.getElementById('addCouponBtn').onclick = () => showCouponModal();
+}
 window.editCoupon = function (code) {
-    fetch(`${API}/coupons`).then(res => res.json()).then(promos => {
+    apiFetch(`${API}/coupons`).then(res => res.json()).then(promos => {
         const promo = promos.find(c => c.code === code);
         showCouponModal(promo);
     }).catch(err => console.warn(err));
 };
 function showCouponModal(promo) {
-    document.getElementById('modalBg').style.display = 'flex';
-    document.getElementById('modalContent').innerHTML = `
+    const modalBg = document.getElementById('modalBg');
+    const modalContent = document.getElementById('modalContent');
+    if (!modalBg || !modalContent) return;
+    modalBg.style.display = 'flex';
+    modalContent.innerHTML = `
                 <h3>${promo ? "Edit" : "Add"} Promotion</h3>
                 <form id="couponForm">
                     <label>Promo Code</label>
@@ -634,9 +690,9 @@ function showCouponModal(promo) {
         data.active = data.active === "true";
         try {
             if (!promo) {
-                await fetch(`${API}/coupons`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                await apiFetch(`${API}/coupons`, { method: "POST", body: data });
             } else {
-                await fetch(`${API}/coupons/${encodeURIComponent(promo.code)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                await apiFetch(`${API}/coupons/${encodeURIComponent(promo.code)}`, { method: "PUT", body: data });
             }
         } catch (err) {
             console.warn(err);
@@ -648,18 +704,20 @@ function showCouponModal(promo) {
 window.deleteCoupon = async function (code) {
     if (confirm("Delete promo code " + code + "?")) {
         try {
-            await fetch(`${API}/coupons/${encodeURIComponent(code)}`, { method: "DELETE" });
+            await apiFetch(`${API}/coupons/${encodeURIComponent(code)}`, { method: "DELETE" });
         } catch (e) { /* ignore */ }
         loadCoupons();
     }
 };
+
 // ----------- Orders -----------
 async function loadOrders() {
     try {
-        const res = await fetch(`${API}/orders`);
+        const res = await apiFetch(`${API}/orders`);
         if (!res.ok) return;
         const orders = await res.json();
         const tbody = document.querySelector('#ordersTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         orders.forEach(o => {
             let statusClass = "";
@@ -690,18 +748,23 @@ async function loadOrders() {
         console.warn('loadOrders error', err);
     }
 }
-document.getElementById('addOrderBtn').onclick = () => showOrderModal();
+if (document.getElementById('addOrderBtn')) {
+    document.getElementById('addOrderBtn').onclick = () => showOrderModal();
+}
 window.editOrder = function (id) {
-    fetch(`${API}/orders`).then(res => res.json()).then(orders => {
+    apiFetch(`${API}/orders`).then(res => res.json()).then(orders => {
         const order = orders.find(o => o.id == id);
         showOrderModal(order);
     }).catch(err => console.warn(err));
 };
 function showOrderModal(order) {
-    fetch(`${API}/products`).then(res => res.json()).then(products => {
-        fetch(`${API}/coupons`).then(res => res.json()).then(promos => {
-            document.getElementById('modalBg').style.display = 'flex';
-            document.getElementById('modalContent').innerHTML = `
+    apiFetch(`${API}/products`).then(res => res.json()).then(products => {
+        apiFetch(`${API}/coupons`).then(res => res.json()).then(promos => {
+            const modalBg = document.getElementById('modalBg');
+            const modalContent = document.getElementById('modalContent');
+            if (!modalBg || !modalContent) return;
+            modalBg.style.display = 'flex';
+            modalContent.innerHTML = `
                         <h3>${order ? "Edit" : "Add"} Order</h3>
                         <form id="orderForm">
                             <label>Customer Name</label>
@@ -758,9 +821,9 @@ function showOrderModal(order) {
                 }
                 try {
                     if (order) {
-                        await fetch(`${API}/orders/${encodeURIComponent(order.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                        await apiFetch(`${API}/orders/${encodeURIComponent(order.id)}`, { method: "PUT", body: data });
                     } else {
-                        await fetch(`${API}/orders`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+                        await apiFetch(`${API}/orders`, { method: "POST", body: data });
                     }
                 } catch (err) {
                     console.warn(err);
@@ -774,15 +837,454 @@ function showOrderModal(order) {
 window.deleteOrder = async function (order_id) {
     if (confirm("Delete order?")) {
         try {
-            await fetch(`${API}/orders/${encodeURIComponent(order_id)}`, { method: "DELETE" });
+            await apiFetch(`${API}/orders/${encodeURIComponent(order_id)}`, { method: "DELETE" });
         } catch (e) { /* ignore */ }
         loadOrders();
     }
 }
 
 // Modal helpers
-function closeModal() { document.getElementById('modalBg').style.display = 'none'; }
-document.getElementById('modalBg').onclick = function (e) {
-    if (e.target === this) closeModal();
-};
+function closeModal() { const mb = document.getElementById('modalBg'); if (mb) mb.style.display = 'none'; }
+if (document.getElementById('modalBg')) {
+    document.getElementById('modalBg').onclick = function (e) {
+        if (e.target === this) closeModal();
+    };
+}
 switchTab('brands');
+
+// -------------------------------
+// Content Admin / Stories Section
+// (Quill WYSIWYG, inline image insertion, featured-image upload,
+//  admin list with search/pagination, drag reorder and save-order, publish/save flows)
+// -------------------------------
+
+(function () {
+    // Elements (may not exist if content admin UI not present)
+    const storiesListEl = document.getElementById('storiesList');
+    const titleEl = document.getElementById('title');
+    const slugEl = document.getElementById('slug');
+    const btnGenSlugEl = document.getElementById('btnGenSlug');
+    const sectionEl = document.getElementById('section');
+    const excerptEl = document.getElementById('excerpt');
+    const authorEl = document.getElementById('author');
+    const imageFileEl = document.getElementById('imageFile');
+    const uploadedPreviewEl = document.getElementById('uploadedPreview');
+    const btnClearImageEl = document.getElementById('btnClearImage');
+    const saveBtnEl = document.getElementById('saveBtn');
+    const publishBtnEl = document.getElementById('btnPublish');
+    const cancelBtnEl = document.getElementById('btnCancel');
+    const newBtnEl = document.getElementById('btnNew');
+    const refreshBtnEl = document.getElementById('btnRefresh');
+    const saveOrderBtnEl = document.getElementById('btnSaveOrder');
+    const searchInputEl = document.getElementById('searchInput');
+    const prevPageBtnEl = document.getElementById('btnPrevPage');
+    const nextPageBtnEl = document.getElementById('btnNextPage');
+    const saveStatusEl = document.getElementById('saveStatus');
+    const adminErrorEl = document.getElementById('adminError');
+    const editingIdInputEl = document.getElementById('editingId');
+    const editorTitleEl = document.getElementById('editorTitle');
+    const quillContainer = document.getElementById('quillEditor');
+    const bodyHiddenInput = document.getElementById('body_html');
+    const storyFormEl = document.getElementById('storyForm');
+
+    if (!quillContainer || !storyFormEl) {
+        // content admin not present; nothing to wire
+        return;
+    }
+
+    // State
+    let quill;
+    let editingId = null;
+    let uploadedImagePath = null;
+    let slugTouched = false;
+    let currentPage = 1;
+    let currentLimit = 20;
+    let currentQuery = '';
+
+    function setStatus(msg, ok = true) {
+        if (!saveStatusEl) return;
+        saveStatusEl.textContent = msg || '';
+        saveStatusEl.style.color = ok ? '' : '#b00020';
+    }
+
+    function showError(msg) {
+        if (!adminErrorEl) {
+            alert(msg);
+            return;
+        }
+        adminErrorEl.hidden = false;
+        adminErrorEl.textContent = msg;
+        setTimeout(() => { adminErrorEl.hidden = true; }, 6000);
+    }
+
+    function generateSlug(text) {
+        return (text || "").toLowerCase()
+            .trim()
+            .replace(/[’'"]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    async function extractErrorText(res) {
+        try {
+            const js = await res.json();
+            return js.error || js.detail || JSON.stringify(js);
+        } catch (e) {
+            try { return await res.text(); } catch (e2) { return res.statusText || 'Error'; }
+        }
+    }
+
+    // Initialize Quill
+    function initQuill() {
+        quill = new Quill('#quillEditor', {
+            theme: 'snow',
+            modules: {
+                toolbar: {
+                    container: [
+                        [{ header: [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['link', 'image'],
+                        ['clean']
+                    ],
+                    handlers: {
+                        image: quillImageHandler
+                    }
+                }
+            }
+        });
+        quill.on('text-change', () => {
+            if (bodyHiddenInput) bodyHiddenInput.value = quill.root.innerHTML;
+        });
+    }
+
+    // Quill image handler: upload to CONTENT_API admin upload endpoint and insert image
+    async function quillImageHandler() {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');
+        input.click();
+        input.onchange = async () => {
+            const file = input.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('image', file);
+            try {
+                const res = await apiFetch(`${CONTENT_API}/admin/upload-image`, { method: 'POST', body: fd });
+                if (!res.ok) {
+                    const txt = await extractErrorText(res);
+                    alert('Image upload failed: ' + txt);
+                    return;
+                }
+                const js = await res.json();
+                const url = js.url || (js.path ? `/static/${js.path}` : null);
+                if (url) {
+                    const range = quill.getSelection(true);
+                    quill.insertEmbed(range.index, 'image', url);
+                    quill.setSelection(range.index + 1);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Image upload failed.');
+            }
+        };
+    }
+
+    // Wire UI events
+    if (titleEl) titleEl.addEventListener('input', (e) => { if (!slugTouched && slugEl) slugEl.value = generateSlug(e.target.value); });
+    if (slugEl) slugEl.addEventListener('input', () => { slugTouched = true; });
+    if (btnGenSlugEl) btnGenSlugEl.addEventListener('click', () => { if (titleEl && slugEl) { slugEl.value = generateSlug(titleEl.value); slugTouched = true; } });
+
+    if (btnClearImageEl) btnClearImageEl.addEventListener('click', () => {
+        uploadedImagePath = null;
+        if (uploadedPreviewEl) uploadedPreviewEl.innerHTML = '';
+        if (imageFileEl) imageFileEl.value = '';
+    });
+
+    if (imageFileEl) {
+        imageFileEl.addEventListener('change', async (e) => {
+            const f = e.target.files[0];
+            if (!f) return;
+            const fd = new FormData();
+            fd.append('image', f);
+            try {
+                const res = await apiFetch(`${CONTENT_API}/admin/upload-image`, { method: 'POST', body: fd });
+                if (!res.ok) {
+                    const txt = await extractErrorText(res);
+                    showError('Image upload failed: ' + txt);
+                    return;
+                }
+                const js = await res.json();
+                uploadedImagePath = js.url || (js.path ? `/static/${js.path}` : null);
+                if (uploadedPreviewEl) uploadedPreviewEl.innerHTML = uploadedImagePath ? `<img src="${uploadedImagePath}" style="max-width:220px;border-radius:6px;">` : '';
+            } catch (err) {
+                console.error(err);
+                showError('Upload failed (network).');
+            }
+        });
+    }
+
+    if (newBtnEl) newBtnEl.addEventListener('click', () => {
+        editingId = null;
+        if (editingIdInputEl) editingIdInputEl.value = '';
+        storyFormEl.reset();
+        quill && (quill.root.innerHTML = '');
+        uploadedImagePath = null;
+        if (uploadedPreviewEl) uploadedPreviewEl.innerHTML = '';
+        slugTouched = false;
+        if (editorTitleEl) editorTitleEl.textContent = 'New Story';
+    });
+
+    if (refreshBtnEl) refreshBtnEl.addEventListener('click', () => fetchStoriesAdmin());
+    if (prevPageBtnEl) prevPageBtnEl.addEventListener('click', () => { if (currentPage > 1) { currentPage -= 1; fetchStoriesAdmin(); } });
+    if (nextPageBtnEl) nextPageBtnEl.addEventListener('click', () => { currentPage += 1; fetchStoriesAdmin(); });
+    if (saveOrderBtnEl) saveOrderBtnEl.addEventListener('click', () => saveOrderAdmin());
+    if (searchInputEl) searchInputEl.addEventListener('keyup', (e) => { if (e.key === 'Enter') { currentQuery = searchInputEl.value.trim(); currentPage = 1; fetchStoriesAdmin(); } });
+
+    // Save (create/update) story
+    storyFormEl.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setStatus('Saving…');
+        if (adminErrorEl) adminErrorEl.hidden = true;
+
+        const payload = {
+            title: titleEl ? titleEl.value.trim() : '',
+            slug: slugEl ? slugEl.value.trim() : '',
+            section: sectionEl ? sectionEl.value.trim() : '',
+            excerpt: excerptEl ? excerptEl.value.trim() : '',
+            body_html: quill ? quill.root.innerHTML : (bodyHiddenInput ? bodyHiddenInput.value : ''),
+            author: authorEl ? authorEl.value.trim() : '',
+            featured_image: uploadedImagePath
+        };
+
+        if (!payload.title) { showError('Title is required'); setStatus('', false); return; }
+        if (!payload.slug) { showError('Slug is required'); setStatus('', false); return; }
+
+        try {
+            let res;
+            if (editingId) {
+                res = await apiFetch(`${CONTENT_API}/admin/stories/${editingId}`, {
+                    method: 'PUT',
+                    body: payload
+                });
+            } else {
+                res = await apiFetch(`${CONTENT_API}/admin/stories`, {
+                    method: 'POST',
+                    body: payload
+                });
+            }
+            if (!res.ok) {
+                const txt = await extractErrorText(res);
+                showError('Save failed: ' + txt);
+                setStatus('', false);
+                return;
+            }
+            setStatus('Saved');
+            editingId = null;
+            if (editingIdInputEl) editingIdInputEl.value = '';
+            storyFormEl.reset();
+            quill && (quill.root.innerHTML = '');
+            if (uploadedPreviewEl) uploadedPreviewEl.innerHTML = '';
+            uploadedImagePath = null;
+            slugTouched = false;
+            fetchStoriesAdmin();
+        } catch (err) {
+            console.error(err);
+            showError('Save failed (network error).');
+            setStatus('', false);
+        } finally {
+            setTimeout(() => setStatus(''), 1600);
+        }
+    });
+
+    // Publish
+    if (publishBtnEl) {
+        publishBtnEl.addEventListener('click', async () => {
+            const id = editingId || (editingIdInputEl ? editingIdInputEl.value : null);
+            if (!id) { showError('Save the story first before publishing'); return; }
+            try {
+                const res = await apiFetch(`${CONTENT_API}/admin/stories/${id}/publish`, {
+                    method: 'POST',
+                    body: { action: 'publish' }
+                });
+                if (!res.ok) {
+                    const txt = await extractErrorText(res);
+                    showError('Publish failed: ' + txt);
+                    return;
+                }
+                setStatus('Published');
+                fetchStoriesAdmin();
+            } catch (err) {
+                console.error(err);
+                showError('Publish failed (network).');
+            } finally {
+                setTimeout(() => setStatus(''), 1400);
+            }
+        });
+    }
+
+    // Fetch admin stories (paged, searchable)
+    async function fetchStoriesAdmin() {
+        if (!storiesListEl) return;
+        storiesListEl.innerHTML = "<div style='color:#666'>Loading…</div>";
+        try {
+            const params = new URLSearchParams();
+            params.set('page', currentPage);
+            params.set('limit', currentLimit);
+            if (currentQuery) params.set('q', currentQuery);
+            const res = await apiFetch(`${CONTENT_API}/admin/stories?${params.toString()}`);
+            if (!res.ok) {
+                const txt = await extractErrorText(res);
+                showError('Failed to load stories: ' + txt);
+                storiesListEl.innerHTML = "<div style='color:#c00'>Unable to load stories.</div>";
+                return;
+            }
+            const js = await res.json();
+            renderStoriesAdmin(js.items || []);
+        } catch (err) {
+            console.error(err);
+            storiesListEl.innerHTML = "<div style='color:#c00'>Error loading stories.</div>";
+        }
+    }
+
+    // Render stories list with drag & reorder and action buttons
+    function renderStoriesAdmin(list) {
+        if (!Array.isArray(list) || list.length === 0) {
+            storiesListEl.innerHTML = "<div>No stories yet.</div>";
+            return;
+        }
+        storiesListEl.innerHTML = '';
+        list.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'story-row';
+            row.draggable = true;
+            row.dataset.id = item.id;
+            row.innerHTML = `
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span class="draggable-handle" title="Drag to reorder">☰</span>
+                  <div>
+                    <div style="font-weight:600">${escapeHtml(item.title)}</div>
+                    <div class="meta" style="font-size:0.85rem;color:#666">${escapeHtml(item.slug || '')} • ${escapeHtml(item.section || '-')}</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn small" data-action="edit" data-id="${item.id}">Edit</button>
+                  <button class="btn small subtle" data-action="delete" data-id="${item.id}">Delete</button>
+                </div>
+            `;
+            // drag handlers
+            row.addEventListener('dragstart', adminHandleDragStart, false);
+            row.addEventListener('dragover', adminHandleDragOver, false);
+            row.addEventListener('drop', adminHandleDrop, false);
+            row.addEventListener('dragend', adminHandleDragEnd, false);
+            storiesListEl.appendChild(row);
+        });
+
+        // actions
+        storiesListEl.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const action = e.currentTarget.dataset.action;
+                const id = e.currentTarget.dataset.id;
+                if (action === 'edit') return adminEditStory(id);
+                if (action === 'delete') {
+                    if (!confirm('Delete this story?')) return;
+                    const r = await apiFetch(`${CONTENT_API}/admin/stories/${id}`, { method: 'DELETE' });
+                    if (!r.ok) { showError('Delete failed (unauthorized).'); return; }
+                    fetchStoriesAdmin();
+                }
+            });
+        });
+    }
+
+    // Drag & drop admin helpers
+    let dragSrcEl = null;
+    function adminHandleDragStart(e) {
+        dragSrcEl = e.currentTarget;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', e.currentTarget.dataset.id);
+        e.currentTarget.style.opacity = '0.4';
+    }
+    function adminHandleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        e.currentTarget.classList.add('drag-over');
+    }
+    function adminHandleDrop(e) {
+        e.stopPropagation();
+        const srcId = e.dataTransfer.getData('text/plain');
+        const dest = e.currentTarget;
+        if (!srcId || !dest || dest.dataset.id === srcId) return;
+        const srcEl = Array.from(storiesListEl.children).find(n => n.dataset.id === srcId);
+        storiesListEl.insertBefore(srcEl, dest.nextSibling);
+    }
+    function adminHandleDragEnd(e) {
+        e.currentTarget.style.opacity = '';
+        Array.from(storiesListEl.children).forEach(c => c.classList.remove('drag-over'));
+    }
+
+    // Save order
+    async function saveOrderAdmin() {
+        const ids = Array.from(storiesListEl.children).map(ch => ch.dataset.id).filter(Boolean);
+        if (!ids.length) return;
+        try {
+            const res = await apiFetch(`${CONTENT_API}/admin/stories/reorder`, {
+                method: 'POST',
+                body: { ids }
+            });
+            if (!res.ok) {
+                const txt = await extractErrorText(res);
+                showError('Save order failed: ' + txt);
+                return;
+            }
+            setStatus('Order saved');
+            fetchStoriesAdmin();
+        } catch (err) {
+            console.error(err);
+            showError('Save order failed (network).');
+        } finally {
+            setTimeout(() => setStatus(''), 1600);
+        }
+    }
+
+    // Edit story
+    async function adminEditStory(id) {
+        try {
+            const listRes = await apiFetch(`${CONTENT_API}/admin/stories?page=1&limit=200`);
+            if (!listRes.ok) { showError('Unable to fetch story'); return; }
+            const listJs = await listRes.json();
+            const item = (listJs.items || []).find(it => String(it.id) === String(id));
+            if (!item) { showError('Story not found'); return; }
+            editingId = item.id;
+            if (editingIdInputEl) editingIdInputEl.value = item.id;
+            if (editorTitleEl) editorTitleEl.textContent = 'Edit Story';
+            if (titleEl) titleEl.value = item.title || '';
+            if (slugEl) slugEl.value = item.slug || '';
+            if (sectionEl) sectionEl.value = item.section || '';
+            if (excerptEl) excerptEl.value = item.excerpt || '';
+            if (authorEl) authorEl.value = item.author || '';
+
+            // fetch public detail for body and featured image
+            const detailRes = await apiFetch(`${CONTENT_API}/stories/${item.slug}`);
+            if (detailRes.ok) {
+                const djs = await detailRes.json();
+                quill.root.innerHTML = djs.body_html || '';
+                if (bodyHiddenInput) bodyHiddenInput.value = djs.body_html || '';
+                uploadedImagePath = djs.featured_image || null;
+                if (uploadedPreviewEl) uploadedPreviewEl.innerHTML = uploadedImagePath ? `<img src="${uploadedImagePath}" style="max-width:220px;border-radius:6px;">` : '';
+            } else {
+                quill.root.innerHTML = '';
+                if (uploadedPreviewEl) uploadedPreviewEl.innerHTML = '';
+            }
+            slugTouched = true;
+        } catch (err) {
+            console.error(err);
+            showError('Failed to load story for editing.');
+        }
+    }
+
+    // Init
+    initQuill();
+    fetchStoriesAdmin();
+})();
+
+// End of admin.js

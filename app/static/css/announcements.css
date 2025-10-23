@@ -1,6 +1,5 @@
 /* Replace static/css/announcements.css with this version.
-   - Shows the "Shop from" label inline to the right of Store Locator.
-   - Keeps select arrow visible and options readable.
+   - Keeps Store Locator and adds a small locator map.
    - Responsive stacking for narrow viewports.
 */
 
@@ -59,7 +58,7 @@
     color: #fff;
 }
 
-/* city selector area on the right (inline) */
+/* city selector area on the right (inline) - now contains store locator + map */
 .city-selector {
     display: flex;
     align-items: center;
@@ -81,55 +80,14 @@
     background: rgba(255, 255, 255, 0.03);
 }
 
-/* Visible label next to store locator */
-.city-label {
-    color: #fff;
-    font-size: 0.92rem;
-    margin-left: 2px;
-    margin-right: 4px;
-    display: inline-block;
-    white-space: nowrap;
-}
-
-/* improved select styling: visible arrow and contrast */
-.city-selector select {
-    color: #fff;
-    background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    padding: 6px 28px 6px 10px;
-    /* room for custom arrow at right */
-    cursor: pointer;
-    font-size: 0.9rem;
+/* small locator map */
+.locator-map {
+    width: 180px;
+    height: 90px;
     border-radius: 6px;
-    -webkit-appearance: none;
-    appearance: none;
-    position: relative;
-    background-image:
-        linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.95) 50%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.95) 50%, transparent 50%),
-        linear-gradient(to right, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02));
-    background-position:
-        calc(100% - 10px) calc(50% - 3px),
-        calc(100% - 6px) calc(50% - 3px),
-        100% 0;
-    background-size:
-        6px 6px,
-        6px 6px,
-        1px 100%;
-    background-repeat: no-repeat;
-}
-
-/* option panel appearance where supported */
-.city-selector select option {
-    background: #333;
-    color: #fff;
-}
-
-/* focus and hover states */
-.city-selector select:focus,
-.city-selector select:hover {
-    outline: none;
-    border-color: rgba(255, 255, 255, 0.28);
+    overflow: hidden;
+    background: #f1f1f1;
+    border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Accessibility helper (if you still use it elsewhere) */
@@ -172,12 +130,15 @@
         padding: 6px 6px;
     }
 
-    .city-label {
-        margin-left: 0;
-    }
-
-    .city-selector select {
+    .locator-map {
         width: 140px;
-        padding-right: 22px;
+        height: 80px;
+    }
+}
+
+@media (max-width: 420px) {
+    .locator-map {
+        width: 100%;
+        height: 120px;
     }
 }

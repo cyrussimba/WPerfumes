@@ -1,5 +1,11 @@
 # WPerfumes E-Commerce Flask Application
 
+##  chmod +x ./run-local.sh
+## ./run-local.sh
+AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f
+ENfQY0jGTzefs-TaMLsfQa20ILEsxmzoNl8mYGK_fMbpDomqZwuSKKaLJo6teHA4HZpJ6qAvXD582LTZ
+
+
 This is an e-commerce backend built with Flask, SQLAlchemy, and PostgreSQL (compatible with SQLite for local development). It provides RESTful API endpoints for managing brands, products, homepage sections, orders, coupons, and more. The project is structured for easy deployment to [Render](https://render.com/) and supports email notifications for orders.
 
 ---

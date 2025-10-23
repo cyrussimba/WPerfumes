@@ -1,98 +1,180 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title id="pageTitle">Product Detail</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title id="pageTitle">Product</title>
 
-    <!-- Main site stylesheet -->
+    <!-- Site CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <!-- Announcements stylesheet (same as index.html) -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/announcements.css') }}">
-    <!-- Footer stylesheet (same as index.html) -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
-    <!-- Page-specific stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/brand_detail.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/announcements.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
 
-    <!-- Font Awesome for footer icons (same source as index.html) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-
-    <!-- Inline fixes for the "You may also like" slider overflow issue -->
     <style>
-        /*
-         * Slider overflow fix and alignment:
-         * - Ensure the slider section is contained and centered like other sections
-         * - The .slider-window clips overflowing track content to prevent it from covering the whole page
-         * - The track is horizontal flex with non-wrapping children sized appropriately
-         */
+        /* Lightweight page-specific overrides so the page is usable even without full CSS */
+        .product-page {
+            max-width: 1100px;
+            margin: 20px auto;
+            padding: 18px;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 22px;
+            align-items: start;
+        }
+
+        .product-gallery {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            border: 1px solid #eee;
+        }
+
+        .product-main-image {
+            width: 100%;
+            height: 540px;
+            max-height: 60vh;
+            object-fit: contain;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+
+        .thumbs {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .thumbs img {
+            width: 78px;
+            height: 78px;
+            object-fit: contain;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid #eee;
+            background: #fff;
+        }
+
+        .product-info {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            border: 1px solid #eee;
+        }
+
+        .product-title {
+            font-size: 1.45rem;
+            margin: 0;
+            color: #222;
+        }
+
+        .product-brand {
+            color: #666;
+            margin-top: 6px;
+        }
+
+        .price-row {
+            display: flex;
+            gap: 12px;
+            align-items: baseline;
+            margin-top: 10px;
+        }
+
+        .price {
+            font-size: 1.35rem;
+            color: #cc0000;
+            font-weight: 800;
+        }
+
+        .discounted-price {
+            font-size: 1.15rem;
+            color: #27ae60;
+            font-weight: 800;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .btn-primary {
+            background: #2d8f7c;
+            color: #fff;
+        }
+
+        .btn-buy {
+            background: #4aa3ff;
+            color: #fff;
+        }
+
+        .btn-disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .small-muted {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .notes {
+            margin-top: 12px;
+            color: #333;
+            line-height: 1.45;
+        }
+
         .slider-section {
-            max-width: 1200px;
-            margin: 24px auto;
-            padding: 0 12px;
+            margin-top: 26px;
+            max-width: 1100px;
+            padding: 0 18px;
             box-sizing: border-box;
         }
 
-        .slider-section h3 {
-            margin: 0 0 12px 0;
-            font-size: 1.15rem;
-            color: #3e2723;
-        }
-
-        /* The viewport for the slider — must hide overflow */
         .slider-window {
             width: 100%;
             overflow: hidden;
-            box-sizing: border-box;
             border-radius: 6px;
         }
 
-        /* The track holding items: horizontal row that doesn't wrap */
         .slider-track {
             display: flex;
             gap: 14px;
-            align-items: stretch;
-            flex-wrap: nowrap;
-            transition: transform 0.25s ease;
-            will-change: transform;
             padding: 8px 4px;
-            box-sizing: border-box;
+            transition: transform 220ms ease;
+            will-change: transform;
         }
 
-        /* Ensure each suggested product card doesn't grow to full width */
-        .slider-track>* {
-            flex: 0 0 auto;
-            /* prefer a comfortable card width; backend/JS may render cards with their own classes */
-            width: 220px;
-            max-width: 260px;
-            box-sizing: border-box;
-        }
-
-        /* If brand_detail.css already defines .product-card, keep card visuals but make sure they fit */
         .slider-track .product-card {
-            height: auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
+            width: 220px;
+            flex: 0 0 auto;
         }
 
-        /* Small screens: allow cards to be slightly narrower */
-        @media (max-width: 600px) {
-            .slider-track>* {
-                width: 160px;
-                max-width: 38%;
+        @media (max-width: 980px) {
+            .product-page {
+                grid-template-columns: 1fr;
             }
 
-            .slider-section {
-                padding: 0 8px;
+            .product-main-image {
+                height: 420px;
             }
         }
     </style>
 </head>
 
-<body data-placeholder="{{ url_for('static', filename='images/placeholder.jpg') }}">
-    <!-- Announcement Section (copied from index.html) -->
+<body>
+    <!-- Announcements / top bar (updated to match homepage features) -->
     <div class="announcement-container container" aria-live="polite">
         <header class="announcement-bar" role="region" aria-label="Site announcements">
             <div class="announcement-text-container" aria-hidden="false">
@@ -105,41 +187,35 @@
                 </ul>
             </div>
             <div class="city-selector" aria-hidden="false">
-                <a href="{{ url_for('brand') }}" class="shop-locator">Store Locator</a>
-                <label for="city-dropdown" class="city-label">Shop from</label>
-                <select id="city-dropdown" aria-label="Select your shopping country">
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="UAE">UAE</option>
-                    <option value="Kuwait">Kuwait</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Bahrain">Bahrain</option>
-                    <option value="Turkey">Turkey</option>
-                </select>
+                <a class="shop-locator" href="{{ url_for('main.brand') }}">Store Locator</a>
             </div>
         </header>
     </div>
-    <!-- End Announcement Section -->
 
-    <!-- Navbar -->
+    <!-- Navbar (updated to match homepage navigation tabs & features) -->
     <nav class="navbar" role="navigation" aria-label="Main navigation">
-        <div class="navbar-left">
-            <a href="{{ url_for('index') }}" class="brand-logo">WPerfumes</a>
-            <ul class="nav-tabs" role="menubar" aria-label="Main menu">
-                <li><a href="{{ url_for('index') }}" role="menuitem">Home</a></li>
-                <li><a href="{{ url_for('men') }}" role="menuitem">Men</a></li>
-                <li><a href="{{ url_for('women') }}" role="menuitem">Women</a></li>
-                <li><a href="{{ url_for('beauty') }}" role="menuitem">Beauty</a></li>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <a class="brand-logo" href="{{ url_for('main.index') }}">WPerfumes</a>
+            <ul class="nav-tabs" role="menubar" aria-label="Site Menu">
+                <li><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li><a href="{{ url_for('main.men') }}">Men</a></li>
+                <li><a href="{{ url_for('main.women') }}">Women</a></li>
+                <li><a href="{{ url_for('main.beauty') }}">Beauty</a></li>
+                <li><a href="{{ url_for('main.history') }}">History</a></li>
+                <li><a href="{{ url_for('main.about') }}">About Us</a></li>
             </ul>
         </div>
+
         <div class="navbar-center">
-            <div class="search-container" role="search">
-                <input id="globalSearch" type="text" placeholder="Search for scents, notes, or brands..."
+            <div class="search-container">
+                <!-- keep id 'siteSearch' to preserve any existing scripts on brand_detail that reference it -->
+                <input id="siteSearch" type="text" placeholder="Search for scents, notes, or brands..."
                     aria-label="Search">
             </div>
         </div>
+
         <div class="navbar-right">
-            <!-- ensure badge id matches main.js -->
-            <a href="{{ url_for('cart') }}" class="cart-btn" id="cartBtn" aria-label="Open cart">
+            <a id="cartBtn" class="cart-btn" href="{{ url_for('main.cart') }}" aria-label="Open cart">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="9" cy="21" r="1"></circle>
@@ -149,123 +225,86 @@
                 <span>Cart</span>
                 <span id="cartCountBadge" class="cart-count-badge" style="display:none;">0</span>
             </a>
+
             <div class="login-menu-container">
-                <a href="{{ url_for('login_page') }}" class="login-btn" aria-label="Login">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="7" r="4"></circle>
-                        <path d="M5.5 21a5.5 5.5 0 0 1 13 0"></path>
-                    </svg>
-                    <span>Login</span>
-                </a>
+                <a href="{{ url_for('main.login_page') }}" class="login-btn">Login</a>
+                <div class="login-submenu">
+                    <a href="{{ url_for('main.signup') }}" class="signup-btn">Sign Up</a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- Main content -->
-    <main role="main">
+    <!-- PRODUCT DETAIL -->
+    <main class="product-page" role="main" aria-labelledby="productTitle">
+        <section class="product-gallery" aria-label="Product media">
+            <img id="mainImage" class="product-main-image" alt="Product image"
+                src="{{ url_for('static', filename='images/placeholder.jpg') }}">
+            <div class="thumbs" id="thumbsContainer" aria-hidden="false"></div>
 
-        <!-- Product panel (card) for easier visibility -->
-        <section class="product-panel" aria-label="Product panel">
-            <div class="main-product-row" role="region" aria-label="Product details">
-                <!-- LEFT: Main product image and thumbnails below -->
-                <section class="image-section" aria-label="Product images">
-                    <div class="product-image-wrapper" aria-live="polite">
-                        <img id="productImage" src="{{ url_for('static', filename='images/placeholder.jpg') }}"
-                            alt="Product Image">
-                    </div>
-                    <div class="thumbnails-col" id="thumbnailsCol" aria-hidden="false" aria-label="Product thumbnails">
-                        <!-- Thumbnails inserted by JS -->
-                    </div>
-                </section>
-
-                <!-- CENTER: Name, short desc, price, CTA, key notes -->
-                <section class="info-section" aria-label="Product information">
-                    <div id="discountPercentInfo" class="discount-info hidden" role="status" aria-live="polite"></div>
-                    <h1 id="productName">Loading...</h1>
-                    <span id="brandName" class="muted">Brand</span>
-                    <div id="productPrice">--</div>
-                    <div id="subtitle" class="muted" style="display:none;"></div>
-                    <div class="product-actions" role="group" aria-label="Product actions">
-                        <!-- Primary CTA: Buy Now (keeps addCartBtn ID so existing JS that hooks it still works) -->
-                        <button id="addCartBtn" class="cta-button" aria-live="polite" aria-label="Buy now">⚡ Buy
-                            Now</button>
-                        <!-- Secondary CTA: Wishlist -->
-                        <button id="buyNowBtn" class="cta-secondary" aria-label="Add to wishlist">♡ Wishlist</button>
-                    </div>
-                    <div class="specs" aria-label="Product specifications">
-                        <h4>Key Notes</h4>
-                        <ul id="keyNotes">
-                            <!-- Key notes inserted by JS -->
-                        </ul>
-                        <div id="productTags" class="muted small" style="margin-top:8px;"></div>
-                    </div>
-                </section>
-
-                <!-- RIGHT: Detailed description with formatting -->
-                <section class="details-section" aria-label="Detailed product description">
-                    <h4>Details & Highlights</h4>
-                    <div id="productDescriptionRich" class="rich-description">
-                        <!-- Rich description inserted by JS (rendered HTML from backend) -->
-                        <p id="productDescription">Loading product details...</p>
-                    </div>
-                </section>
-            </div>
+            <!-- Small PayPal button placeholder (hidden by default; only shown when purchase starts) -->
+            <div id="product_paypal_button_container" style="margin-top:12px; display:none;"></div>
         </section>
 
-        <!-- Similar products slider -->
-        <div class="slider-section" aria-label="Similar products">
-            <div id="similarProducts">
-                <h3>You may also like</h3>
-                <div class="slider-window" role="listbox" aria-label="Similar product suggestions">
-                    <div class="slider-track" id="sliderTrack">
-                        <!-- Similar product cards inserted by JS -->
-                    </div>
-                </div>
+        <aside class="product-info" aria-label="Product information">
+            <h1 id="productTitle" class="product-title">Loading…</h1>
+            <div id="productBrand" class="product-brand small-muted"></div>
+
+            <div class="price-row" role="status" aria-live="polite">
+                <div id="priceStrike" style="text-decoration:line-through;color:#888;display:none;">$0.00</div>
+                <div id="priceNow" class="price">$0.00</div>
+                <div id="priceDiscount" class="discounted-price" style="display:none;"></div>
             </div>
-        </div>
+
+            <div class="notes" id="productDescription">Loading description…</div>
+
+            <div class="action-row" style="margin-bottom:6px;">
+                <label for="qty" class="small-muted" style="margin-right:8px;">Qty</label>
+                <input id="qty" type="number" min="1" value="1"
+                    style="width:78px;padding:8px;border:1px solid #ddd;border-radius:6px;">
+            </div>
+
+            <div class="action-row">
+                <button id="addToCartBtn" class="btn btn-primary" type="button">Add to Cart</button>
+                <button id="buyNowBtn" class="btn btn-buy" type="button">Buy Now</button>
+                <div id="productActionMsg" class="small-muted" style="margin-left:8px;"></div>
+            </div>
+
+            <div style="margin-top:12px;">
+                <div class="small-muted">Free returns within 14 days. Secure payments with PayPal and major cards.</div>
+            </div>
+        </aside>
     </main>
 
-    <!-- Cart modal (copied from index.html) -->
-    <div id="cartModalBg" class="cart-modal-bg" aria-hidden="true" style="display:none;">
+    <!-- "You may also like" slider -->
+    <section class="slider-section" aria-label="You may also like">
+        <h3>You may also like</h3>
+        <div class="slider-window" aria-hidden="false">
+            <div id="suggestedTrack" class="slider-track" role="list"></div>
+        </div>
+    </section>
+
+    <!-- Cart modal & checkout modal used by main.js (kept minimal so main.js can operate) -->
+    <div id="cartModalBg" class="cart-modal-bg" aria-hidden="true">
         <div class="cart-modal-content" id="cartModal" role="dialog" aria-modal="true" aria-label="Cart">
             <button id="cartModalCloseBtn" class="cart-modal-close" aria-label="Close cart">✕</button>
-            <div class="cart-modal-header">
-                <div>Shopping Cart</div>
-            </div>
-
+            <div class="cart-modal-header">Shopping Cart</div>
             <div id="cartDiscountInfo" class="discount-info" style="display:none;"></div>
-
             <div id="cartList" class="cart-list" aria-live="polite"></div>
-
             <div class="cart-modal-footer">
                 <div id="cartModalTotal" class="cart-modal-total"></div>
                 <div style="flex:1"></div>
-                <a id="openCheckoutFromCart" class="btn-primary" href="{{ url_for('checkout') }}"
-                    style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Checkout</a>
+                <a id="openCheckoutFromCart" class="btn-primary" href="{{ url_for('main.checkout') }}">Checkout</a>
             </div>
         </div>
     </div>
 
-    <!-- Checkout modal (same structure/ids as index.html so main.js can drive it) -->
-    <div id="checkoutModalBg" class="cart-modal-bg" aria-hidden="true" style="display:none;">
-        <div id="checkoutModalContent" role="dialog" aria-modal="true" aria-label="Checkout">
-            <button id="checkoutModalCloseBtn" aria-label="Close checkout">✕</button>
+    <div id="checkoutModalBg" class="cart-modal-bg" aria-hidden="true">
+        <div id="checkoutModalContent" class="cart-modal-content" role="dialog" aria-modal="true" aria-label="Checkout">
+            <button id="checkoutModalCloseBtn" aria-label="Close checkout" class="cart-modal-close">✕</button>
             <h2>Checkout</h2>
             <div id="checkoutDiscountInfo" class="discount-info" style="display:none;"></div>
-            <div id="promoWrapper" style="margin-top:12px;">
-                <label for="promoInput">Promo code</label>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <input id="promoInput" type="text" placeholder="Enter promo code"
-                        style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;">
-                    <button id="applyPromoBtn" type="button"
-                        style="padding:8px 10px;border-radius:6px;border:none;background:#2d8f7c;color:white;cursor:pointer;">Apply</button>
-                </div>
-                <div id="promoMsg" style="margin-top:8px;color:#666;font-size:0.95em;"></div>
-            </div>
-
             <div id="cartSection" aria-live="polite"></div>
-
             <div id="paymentSelectWrapper" style="display:block;margin-top:12px;">
                 <label class="payment-dropdown-label">Select Payment Method</label>
                 <select id="paymentSelect" class="payment-select">
@@ -276,7 +315,7 @@
 
             <form id="orderForm" style="margin-top:12px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <input id="customer" name="customer" type="text" placeholder="Full name" required
+                    <input id="customer" name="customer" placeholder="Full name" required
                         style="padding:8px;border:1px solid #ddd;border-radius:6px;">
                     <input id="email" name="email" type="email" placeholder="Email" required
                         style="padding:8px;border:1px solid #ddd;border-radius:6px;">
@@ -291,88 +330,367 @@
                 </div>
                 <div id="orderMsg" style="margin-top:10px;"></div>
                 <div class="form-buttons" style="margin-top:12px;">
-                    <button id="checkoutBtn" type="submit"
-                        style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Place
-                        Order</button>
-                    <button id="buyNowBtn" type="button"
-                        style="background:#27ae60;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Buy
-                        Now</button>
+                    <button id="checkoutBtn" type="submit" class="btn btn-primary">Place Order</button>
+                    <button id="modalBuyNowBtn" type="button" class="btn btn-buy">Buy Now</button>
                 </div>
             </form>
+
+            <!-- PayPal placeholder inside checkout modal -->
+            <div id="modal_paypal_button_container" style="margin-top:12px;"></div>
         </div>
     </div>
 
-    <!-- Footer Section (copied from index.html) -->
+    <!-- Order confirmation modal -->
+    <div id="orderConfirmationModalBg" class="cart-modal-bg" style="display:none;">
+        <div id="orderConfirmationModalContent" class="cart-modal-content" style="max-width:400px;text-align:center;">
+            <button id="orderConfirmationModalCloseBtn" title="Close"
+                style="position:absolute;top:10px;right:18px;font-size:1.5em;background:none;border:none;cursor:pointer;">&times;</button>
+            <div id="orderConfirmationMsg" style="margin:40px 0 15px 0;"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
     <footer class="main-footer">
         <div class="footer-card footer-card-1">
             <div>
                 <h3>Connect with Us</h3>
                 <div class="social-icons-row">
-                    <a href="https://www.facebook.com/wperfumes" class="social-icon"
-                        aria-label="Follow us on Facebook"><i class="fab fa-facebook-f"></i></a>
-                    <a href="https://www.instagram.com/wperfumes" class="social-icon"
-                        aria-label="Follow us on Instagram"><i class="fab fa-instagram"></i></a>
-                    <a href="https://www.tiktok.com/@wperfumes" class="social-icon" aria-label="Follow us on TikTok"><i
-                            class="fab fa-tiktok"></i></a>
-                    <a href="https://www.twitter.com/wperfumes" class="social-icon" aria-label="Follow us on Twitter"><i
-                            class="fab fa-x-twitter"></i></a>
-                </div>
-                <h3>Secure Payments</h3>
-                <div class="payment-icons-row">
-                    <span class="payment-icon" aria-label="Visa Payment"><i class="fab fa-cc-visa"></i></span>
-                    <span class="payment-icon" aria-label="PayPal Payment"><i class="fab fa-cc-paypal"></i></span>
-                    <span class="payment-icon" aria-label="Apple Pay"><i class="fab fa-cc-apple-pay"></i></span>
-                    <span class="payment-icon" aria-label="MasterCard Payment"><i
-                            class="fab fa-cc-mastercard"></i></span>
+                    <a href="#" class="social-icon" aria-label="Follow us on Facebook"><i
+                            class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="social-icon" aria-label="Follow us on Instagram"><i
+                            class="fab fa-instagram"></i></a>
                 </div>
             </div>
-            <p class="registration-number" id="copyright">
-                &copy; WPerfumes, Inc. All Rights Reserved.<br>
-                Company Reg. No: 12345678A
-            </p>
         </div>
-        <div class="footer-card footer-card-2">
-            <h2 class="footer-logo">WPerfumes</h2>
-            <div class="footer-link-column">
-                <h4>Company</h4>
-                <a href="/about" class="footer-link">About Us</a>
-                <a href="/vision" class="footer-link">Our Vision</a>
-                <a href="/sustainability" class="footer-link">Sustainability</a>
-                <a href="/careers" class="footer-link">Careers</a>
-            </div>
-            <div class="footer-link-column">
-                <h4>Support</h4>
-                <a href="/contact" class="footer-link">Contact Us</a>
-                <a href="/faq" class="footer-link">FAQ</a>
-                <a href="/shipping-returns" class="footer-link">Shipping & Returns</a>
-                <a href="/privacy" class="footer-link">Privacy Policy</a>
-            </div>
-            <div class="footer-link-column">
-                <h4>Explore</h4>
-                <a href="/best-sellers" class="footer-link">Best Sellers</a>
-                <a href="/gift-sets" class="footer-link">Gift Sets</a>
-                <a href="/scent-finder" class="footer-link">Scent Finder Quiz</a>
-                <a href="/blog" class="footer-link">Blog & News</a>
-            </div>
-            <div class="footer-link-column">
-                <h4>Contact Info</h4>
-                <a href="mailto:support@wperfumes.com" class="footer-link">Email: support@wperfumes.com</a>
-                <a href="tel:+15551234567" class="footer-link">Phone: +1 (555) 123-4567</a>
-                <a href="/contact#address" class="footer-link">Address: 100 Scent Lane, Perfume City</a>
-            </div>
-        </div>
+        <div class="footer-bottom">&copy; WPerfumes</div>
     </footer>
-    <!-- End Footer Section -->
 
-    <!-- JS Scripts -->
+    <!-- PayPal SDK (sandbox client-id; safe on client side) -->
+    <script
+        src="https://www.paypal.com/sdk/js?client-id=AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f&currency=USD"></script>
+    <!-- Client PayPal helper that the rest of the app expects -->
+    <script src="{{ url_for('static', filename='js/paypal.js') }}"></script>
+
+    <!-- Shared site script (main.js) - this also wires up modals and cart UI -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/brand_detail.js') }}"></script>
 
-    <!-- Announcements behavior script (scrolling, pause-on-hover, city selector toast) -->
-    <script src="{{ url_for('static', filename='js/announcements.js') }}"></script>
+    <script>
+        (function () {
+            // Safe helpers
+            const API = "/api";
+            const placeholder = "{{ url_for('static', filename='images/placeholder.jpg') }}";
 
-    <!-- Footer script to update copyright year and any footer behaviors -->
-    <script src="{{ url_for('static', filename='js/footer.js') }}"></script>
+            function toStaticUrl(url) {
+                if (!url) return placeholder;
+                if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) return url;
+                return `/static/${url}`;
+            }
+
+            function formatPrice(n) {
+                return `$${(Number(n) || 0).toFixed(2)}`;
+            }
+
+            // Read query params to identify which product to load (brand & product)
+            const params = new URLSearchParams(window.location.search);
+            const brandParam = params.get('brand') || '';
+            const productParam = params.get('product') || '';
+            // Prefer explicit product_id when present (this fixes ambiguity introduced by title-slugs)
+            const productIdParam = params.get('product_id') || '';
+
+            // UI elements
+            const mainImage = document.getElementById('mainImage');
+            const thumbsContainer = document.getElementById('thumbsContainer');
+            const titleEl = document.getElementById('productTitle');
+            const brandEl = document.getElementById('productBrand');
+            const priceNow = document.getElementById('priceNow');
+            const priceStrike = document.getElementById('priceStrike');
+            const priceDiscount = document.getElementById('priceDiscount');
+            const descEl = document.getElementById('productDescription');
+            const qtyEl = document.getElementById('qty');
+            const addToCartBtn = document.getElementById('addToCartBtn');
+            const buyNowBtn = document.getElementById('buyNowBtn');
+            const actionMsg = document.getElementById('productActionMsg');
+            const suggestedTrack = document.getElementById('suggestedTrack');
+
+            // product-specific PayPal container
+            const productPayPalContainer = document.getElementById('product_paypal_button_container');
+
+            let productData = null;
+
+            async function fetchProduct() {
+                try {
+                    // If product_id provided, use the authoritative "by id" endpoint.
+                    if (productIdParam) {
+                        const resId = await fetch(`${API}/product_by_id?product_id=${encodeURIComponent(productIdParam)}`);
+                        if (resId.ok) {
+                            const jsid = await resId.json();
+                            return jsid;
+                        }
+                        // if product_id failed, fallthrough to try by brand+slug.
+                    }
+
+                    // fallback: use brand + product slug/title
+                    if (productParam) {
+                        const apiUrl = `${API}/product?brand=${encodeURIComponent(brandParam)}&product=${encodeURIComponent(productParam)}`;
+                        const res = await fetch(apiUrl);
+                        if (!res.ok) throw new Error('Product not found via brand+slug');
+                        const js = await res.json();
+                        return js;
+                    }
+
+                    // final fallback: try to get a first product from /products
+                    const res2 = await fetch(`${API}/products`);
+                    if (!res2.ok) return null;
+                    const list = await res2.json();
+                    return list && list[0] ? list[0] : null;
+                } catch (err) {
+                    // fallback: try public products endpoint
+                    try {
+                        const res2 = await fetch(`${API}/products`);
+                        if (!res2.ok) return null;
+                        const list = await res2.json();
+                        return list && list[0] ? list[0] : null;
+                    } catch (e) {
+                        return null;
+                    }
+                }
+            }
+
+            function renderProduct(p) {
+                if (!p) {
+                    titleEl.textContent = 'Product not found';
+                    descEl.textContent = '';
+                    priceNow.textContent = '$0.00';
+                    return;
+                }
+                productData = p;
+                titleEl.textContent = p.title || p.name || 'Untitled';
+                brandEl.textContent = p.brand || '';
+                const priceVal = parseFloat(p.price || 0);
+                const discountPercent = (window.checkoutDiscountPercent || 0);
+                if (discountPercent > 0) {
+                    const discounted = priceVal * (1 - discountPercent / 100);
+                    priceStrike.style.display = 'inline-block';
+                    priceStrike.textContent = formatPrice(priceVal);
+                    priceNow.textContent = formatPrice(discounted);
+                    priceDiscount.style.display = 'inline-block';
+                    priceDiscount.textContent = `(-${discountPercent}% Off)`;
+                } else {
+                    priceStrike.style.display = 'none';
+                    priceNow.textContent = formatPrice(priceVal);
+                    priceDiscount.style.display = 'none';
+                }
+                descEl.innerHTML = p.description || p.short_description || '';
+
+                // images / thumbs
+                const imgs = [];
+                if (p.image_url) imgs.push(p.image_url);
+                if (p.images && Array.isArray(p.images)) imgs.push(...p.images);
+                if (imgs.length === 0) imgs.push('{{ url_for("static", filename="images/placeholder.jpg") }}');
+
+                mainImage.src = toStaticUrl(imgs[0]);
+                thumbsContainer.innerHTML = '';
+                imgs.forEach((src, idx) => {
+                    const img = document.createElement('img');
+                    img.src = toStaticUrl(src);
+                    img.alt = `${p.title} ${idx + 1}`;
+                    img.addEventListener('click', () => { mainImage.src = img.src; });
+                    thumbsContainer.appendChild(img);
+                });
+            }
+
+            // helper to show & render the product-paypal button area when needed
+            function showProductPayPalButtons() {
+                try {
+                    if (!productPayPalContainer) return;
+                    // only render if the helper exists
+                    if (typeof window.renderPayPalButtons === 'function') {
+                        // show container
+                        productPayPalContainer.style.display = 'block';
+                        // call the helper to render buttons into the container
+                        // keep args consistent with other uses in the app
+                        window.renderPayPalButtons('#product_paypal_button_container', { currency: 'USD', successUrl: '/' });
+                    } else {
+                        // If no helper, the checkout modal will still render PayPal (modal_paypal_button_container)
+                        productPayPalContainer.style.display = 'none';
+                    }
+                } catch (err) {
+                    console.warn('Error rendering product PayPal buttons', err);
+                    productPayPalContainer.style.display = 'none';
+                }
+            }
+
+            // add to cart behaviour
+            addToCartBtn.addEventListener('click', function () {
+                const qty = Math.max(1, parseInt(qtyEl.value || '1', 10));
+                let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+                const id = productData && productData.id ? productData.id : (productIdParam || productParam || (new Date()).getTime().toString());
+                const existing = cart.find(i => ('' + i.id) === ('' + id));
+                const image = (productData && productData.image_url) ? toStaticUrl(productData.image_url) : (mainImage.src || toStaticUrl(''));
+                if (existing) {
+                    existing.quantity = (existing.quantity || 0) + qty;
+                } else {
+                    cart.push({
+                        id: id,
+                        title: productData.title || productData.name || '',
+                        brand: productData.brand || '',
+                        price: Number(productData.price || 0),
+                        image: image,
+                        quantity: qty
+                    });
+                }
+                localStorage.setItem('cart', JSON.stringify(cart));
+                // best-effort notify server about order attempt (non-blocking)
+                try {
+                    fetch(`${API}/order-attempts`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: '', product: productData.title || '', qty: qty, status: 'Carted' })
+                    }).catch(() => { });
+                } catch (e) { }
+
+                actionMsg.textContent = 'Added to cart';
+                actionMsg.style.color = '#27ae60';
+                // open checkout modal using the site's shared function from main.js if available
+                if (typeof openCheckoutModal === 'function') {
+                    openCheckoutModal();
+                }
+            });
+
+            // Buy Now: initiate PayPal card checkout for this single product (preferred)
+            buyNowBtn.addEventListener('click', async function () {
+                const qty = Math.max(1, parseInt(qtyEl.value || '1', 10));
+
+                // If there's a product-specific PayPal flow available, show the product-level PayPal buttons
+                // and let the user continue there. This keeps the PayPal UI hidden until a purchase action occurs.
+                if (typeof window.renderPayPalButtons === 'function') {
+                    showProductPayPalButtons();
+                    // Prefer card checkout helper if provided — but rendering PayPal gives user the visible button as requested.
+                    // Proceed to fallback only if initiateCardCheckout isn't available.
+                }
+
+                const customerObj = { name: '', email: '', phone: '', address: '' };
+                try { localStorage.setItem('paypal_customer', JSON.stringify(customerObj)); } catch (e) { }
+                const item = {
+                    id: productData && productData.id ? productData.id : (productIdParam || productParam || (new Date()).getTime().toString()),
+                    title: productData.title || productData.name || '',
+                    unit_price: parseFloat(productData.price || 0) || 0,
+                    quantity: qty,
+                    currency: 'USD'
+                };
+                try { localStorage.setItem('paypal_items', JSON.stringify([item])); } catch (e) { }
+
+                // best-effort log
+                try {
+                    fetch(`${API}/order-attempts`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: '', product: item.title, qty: item.quantity, status: 'CheckedOut' })
+                    }).catch(() => { });
+                } catch (e) { }
+
+                actionMsg.textContent = 'Redirecting to payment…';
+                actionMsg.style.color = '#000';
+
+                if (typeof window.initiateCardCheckout === 'function') {
+                    try {
+                        await window.initiateCardCheckout([item], { currency: 'USD', returnUrl: window.location.origin + '/paypal/return' });
+                        // If the helper redirects, code execution will stop here as browser navigates to PayPal.
+                    } catch (err) {
+                        console.error('initiateCardCheckout error', err);
+                        const detail = (err && err.message) ? err.message : String(err);
+                        if (detail.toLowerCase().includes('401') || detail.toLowerCase().includes('unauthorized')) {
+                            actionMsg.innerHTML = '<span style="color:#e74c3c;">Payment provider credentials appear missing or invalid on the server. Check PAYPAL_CLIENT_ID and PAYPAL_SECRET on the server.</span>';
+                        } else {
+                            actionMsg.innerHTML = `<span style="color:#e74c3c;">Failed to start card (PayPal) checkout: ${detail}</span>`;
+                        }
+                        actionMsg.style.color = '#e74c3c';
+                    }
+                } else {
+                    // fallback: add to cart + open checkout modal (checkout modal contains the modal_paypal_button_container)
+                    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+                    const id = item.id;
+                    const existing = cart.find(i => ('' + i.id) === ('' + id));
+                    if (existing) existing.quantity = (existing.quantity || 0) + item.quantity;
+                    else cart.push({ id, title: item.title, brand: productData.brand || '', price: item.unit_price, image: mainImage.src || '', quantity: item.quantity });
+                    localStorage.setItem('cart', JSON.stringify(cart));
+                    actionMsg.textContent = 'Added to cart — proceed to checkout';
+                    if (typeof openCheckoutModal === 'function') openCheckoutModal();
+                }
+            });
+
+            // Suggested products (simple fetch of 8 items)
+            async function loadSuggestions() {
+                try {
+                    const res = await fetch(`${API}/products?limit=12`);
+                    if (!res.ok) return;
+                    const list = await res.json();
+                    suggestedTrack.innerHTML = '';
+                    (list || []).forEach(p => {
+                        const card = document.createElement('div');
+                        card.className = 'product-card';
+                        const priceVal = parseFloat(p.price || 0);
+                        const discounted = (window.checkoutDiscountPercent || 0) ? (priceVal * (1 - window.checkoutDiscountPercent / 100)).toFixed(2) : null;
+                        card.innerHTML = `
+                <a href="/brand_detail?brand=${encodeURIComponent(p.brand || '')}&product=${encodeURIComponent((p.title || p.name || '').replace(/ /g, '_'))}">
+                  <div style="padding:8px;text-align:center;">
+                    <img src="${toStaticUrl(p.image_url || '')}" alt="${p.title}" style="width:100%;height:160px;object-fit:contain;border-radius:6px;background:#fff;border:1px solid #eee;">
+                    <h4 style="font-size:0.95rem;margin:8px 0 4px;">${p.title}</h4>
+                    <div style="color:#888;font-size:0.9rem;">${p.brand || ''}</div>
+                  </div>
+                </a>
+                <div style="padding:8px;display:flex;gap:8px;justify-content:space-between;align-items:center;">
+                  <div style="font-weight:700;color:#cc0000;">$${priceVal.toFixed(2)}</div>
+                  <button class="mini-buy btn btn-buy" data-id="${p.id}" data-title="${p.title}" data-price="${priceVal}" data-image="${p.image_url}">Buy</button>
+                </div>
+            `;
+                        suggestedTrack.appendChild(card);
+                    });
+
+                    // attach mini-buy handlers
+                    document.querySelectorAll('.mini-buy').forEach(b => {
+                        b.addEventListener('click', function (e) {
+                            e.preventDefault(); e.stopPropagation();
+                            const id = this.getAttribute('data-id') || new Date().getTime();
+                            const title = this.getAttribute('data-title') || '';
+                            const price = parseFloat(this.getAttribute('data-price') || 0);
+                            const image = this.getAttribute('data-image') ? toStaticUrl(this.getAttribute('data-image')) : '';
+                            let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+                            const existing = cart.find(i => ('' + i.id) === ('' + id));
+                            if (existing) existing.quantity = (existing.quantity || 0) + 1;
+                            else cart.push({ id, title, price, image, quantity: 1 });
+                            localStorage.setItem('cart', JSON.stringify(cart));
+                            if (typeof openCheckoutModal === 'function') openCheckoutModal();
+                        });
+                    });
+
+                } catch (err) {
+                    console.warn('loadSuggestions failed', err);
+                }
+            }
+
+            // On load, fetch the product and suggestions
+            (async function init() {
+                // Ensure global discount loaded if main.js provides it
+                if (typeof fetchDiscountPercent === 'function') {
+                    try { await fetchDiscountPercent(); } catch (e) { /* ignore */ }
+                }
+                const p = await fetchProduct();
+                renderProduct(p);
+                loadSuggestions();
+
+                // NOTE: product-level PayPal button is intentionally NOT rendered automatically here.
+                // The product_paypal_button_container is hidden by default and will be shown only when
+                // the user takes a purchase action (for example clicking "Buy Now"). The checkout modal
+                // still contains modal_paypal_button_container which main.js/paypal.js will render as needed.
+            })();
+        })();
+    </script>
+
+    <!-- Optional: Font Awesome for icons (deferred) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 </body>
 
 </html>

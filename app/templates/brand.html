@@ -511,56 +511,45 @@
                 </ul>
             </div>
             <div class="city-selector" aria-hidden="false">
-                <a href="{{ url_for('brand') }}" class="shop-locator">Store Locator</a>
-                <label for="city-dropdown" class="city-label">Shop from</label>
-                <select id="city-dropdown" aria-label="Select your shopping country">
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="UAE">UAE</option>
-                    <option value="Kuwait">Kuwait</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Bahrain">Bahrain</option>
-                    <option value="Turkey">Turkey</option>
-                </select>
+                <a class="shop-locator" href="{{ url_for('main.brand') }}">Store Locator</a>
             </div>
         </header>
     </div>
 
-    <nav class="navbar">
-        <div class="navbar-left">
-            <a href="{{ url_for('index') }}" class="brand-logo">WPerfumes</a>
-            <ul class="nav-tabs">
-                <li><a href="{{ url_for('index') }}">Home</a></li>
-                <li><a href="{{ url_for('men') }}">Men</a></li>
-                <li><a href="{{ url_for('women') }}">Women</a></li>
-                <li><a href="{{ url_for('beauty') }}">Beauty</a></li>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <a class="brand-logo" href="{{ url_for('main.index') }}">WPerfumes</a>
+            <ul class="nav-tabs" role="menubar" aria-label="Site Menu">
+                <li><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li><a href="{{ url_for('main.men') }}">Men</a></li>
+                <li><a href="{{ url_for('main.women') }}">Women</a></li>
+                <li><a href="{{ url_for('main.beauty') }}">Beauty</a></li>
+                <li><a href="{{ url_for('main.history') }}">History</a></li>
+                <li><a href="{{ url_for('main.about') }}">About Us</a></li>
             </ul>
         </div>
+
         <div class="navbar-center">
-            <div class="search-container"><input type="text" id="siteSearch"
-                    placeholder="Search for scents, notes, or brands..."></div>
+            <div class="search-container"><input id="siteSearchInput" type="text"
+                    placeholder="Search for scents, notes, or brands..." aria-label="Search"></div>
         </div>
+
         <div class="navbar-right">
-            <a href="{{ url_for('cart') }}" class="cart-btn" id="cartBtn">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
+            <a id="cartBtn" class="cart-btn" href="{{ url_for('main.cart') }}" aria-label="Open cart">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3e2723" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="9" cy="21" r="1"></circle>
                     <circle cx="20" cy="21" r="1"></circle>
                     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61l1.38-8.19H6"></path>
                 </svg>
                 <span>Cart</span>
-                <span class="cart-count-badge" id="cartCountBadge" style="display:none;">0</span>
+                <span id="cartCountBadge" class="cart-count-badge" style="display:none;">0</span>
             </a>
+
             <div class="login-menu-container">
-                <a href="{{ url_for('login_page') }}" class="login-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="7" r="4"></circle>
-                        <path d="M5.5 21a5.5 5.5 0 0 1 13 0"></path>
-                    </svg>
-                    <span>Login</span>
-                </a>
+                <a href="{{ url_for('main.login_page') }}" class="login-btn">Login</a>
                 <div class="login-submenu">
-                    <a href="{{ url_for('signup') }}" class="signup-btn">Sign Up</a>
+                    <a href="{{ url_for('main.signup') }}" class="signup-btn">Sign Up</a>
                 </div>
             </div>
         </div>
@@ -652,7 +641,7 @@
             <div class="cart-modal-footer">
                 <div id="cartModalTotal" class="cart-modal-total"></div>
                 <div style="flex:1"></div>
-                <a id="openCheckoutFromCart" class="btn-primary" href="{{ url_for('checkout') }}"
+                <a id="openCheckoutFromCart" class="btn-primary" href="{{ url_for('main.checkout') }}"
                     style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Checkout</a>
             </div>
         </div>
@@ -662,7 +651,7 @@
         <div id="checkoutModalContent" role="dialog" aria-modal="true" aria-label="Checkout" class="cart-modal-content">
             <button id="checkoutModalCloseBtn" aria-label="Close checkout" class="cart-modal-close">✕</button>
             <h2>Checkout</h2>
-            <div id="checkoutDiscountInfo" class="discount-info" style="display:none;"></div>
+            <div id="checkoutDiscountInfo" class="discount-info" style="display:none"></div>
             <div id="promoWrapper" style="margin-top:12px;">
                 <label for="promoInput">Promo code</label>
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -704,6 +693,9 @@
                     <button id="checkoutBtn" type="submit"
                         style="background:#2d8f7c;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Place
                         Order</button>
+                    <button id="buyNowBtn" type="button"
+                        style="background:#27ae60;color:#fff;padding:8px 12px;border-radius:6px;border:none;cursor:pointer;">Buy
+                        Now</button>
                 </div>
             </form>
         </div>
@@ -860,7 +852,7 @@
             // attach handlers
             document.getElementById('continueToCheckoutBtn').addEventListener('click', function () {
                 // navigate to dedicated checkout page; keep the cart in localStorage
-                window.location.href = "{{ url_for('checkout') }}";
+                window.location.href = "{{ url_for('main.checkout') }}";
             });
             document.getElementById('closeCheckoutPreviewBtn').addEventListener('click', function () {
                 closeCheckoutModal();
@@ -1038,15 +1030,34 @@
                     const grid = document.getElementById('productGrid');
                     grid.innerHTML = '';
                     (products || []).forEach(product => {
+                        // Robust product id extraction:
+                        // Some backends return an object for _id (e.g. {_id: { $oid: "..." }}) or numeric id.
+                        // Normalize to a string so product_detail can use the authoritative id when available.
+                        let rawId = '';
+                        if (product.id) {
+                            rawId = product.id;
+                        } else if (product._id) {
+                            // _id might be a string, an object like { $oid: '...' }, or other shape.
+                            if (typeof product._id === 'string') rawId = product._id;
+                            else if (product._id.$oid) rawId = product._id.$oid;
+                            else rawId = JSON.stringify(product._id);
+                        } else {
+                            rawId = '';
+                        }
+                        const pidRaw = rawId ? String(rawId) : '';
+                        const pid = pidRaw ? encodeURIComponent(pidRaw) : '';
+
                         const priceVal = parseFloat(product.price || 0);
                         const discounted = (window.checkoutDiscountPercent && window.checkoutDiscountPercent > 0)
                             ? (priceVal * (1 - (window.checkoutDiscountPercent / 100)))
                             : priceVal;
                         const productSlug = encodeURIComponent((product.title || '').replace(/ /g, '_'));
                         const brandQuery = encodeURIComponent(brandForDisplay || product.brand || '');
-                        const productLink = `/brand_detail?brand=${brandQuery}&product=${productSlug}`;
+                        // use product_id (encoded) in the link but keep a safe raw id for data-id attributes
+                        const productLink = `/brand_detail?brand=${brandQuery}&product=${productSlug}${pid ? `&product_id=${pid}` : ''}`;
 
-                        // include a small .meta wrapper so price & sold-out sit between title and actions
+                        // Build product card HTML. Use pidRaw for data-id attributes so downstream scripts
+                        // (which may expect the raw id) receive a normalized string.
                         grid.innerHTML += `
                         <div class="product-card">
                             <a href="${productLink}" title="View ${brandForDisplay || product.brand} ${product.title}">
@@ -1061,8 +1072,8 @@
                                 ${product.quantity === 0 ? '<span class="sold-out">Sold Out</span>' : ''}
                             </div>
                             <div class="product-actions">
-                                <button class="action-button buy-now" data-id="${product.id}" data-title="${product.title}" data-brand="${product.brand}" data-price="${priceVal}" data-image="${product.image_url}" data-qty="1">⚡ Buy Now</button>
-                                <button class="action-button wishlist-btn" data-id="${product.id}" data-title="${product.title}" data-brand="${product.brand}" data-price="${priceVal}" data-image="${product.image_url}">♡ Wishlist</button>
+                                <button class="action-button buy-now" data-id="${pidRaw}" data-title="${product.title}" data-brand="${product.brand}" data-price="${priceVal}" data-image="${product.image_url}" data-qty="1">⚡ Buy Now</button>
+                                <button class="action-button wishlist-btn" data-id="${pidRaw}" data-title="${product.title}" data-brand="${product.brand}" data-price="${priceVal}" data-image="${product.image_url}">♡ Wishlist</button>
                             </div>
                         </div>
                         `;
@@ -1196,8 +1207,7 @@
     <script src="{{ url_for('static', filename='js/announcements.js') }}"></script>
     <script src="{{ url_for('static', filename='js/footer.js') }}"></script>
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 </body>
 
 

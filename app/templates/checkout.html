@@ -251,9 +251,25 @@
                 <div style="margin-top:12px;">
                     <div class="small-muted">Payment on delivery available for eligible addresses.</div>
                 </div>
+
+                <!-- PayPal button placeholder (checkout page) -->
+                <div id="paypal-button-container" style="margin-top:12px;"></div>
             </aside>
         </div>
     </div>
+
+    <!--
+      PayPal SDK (sandbox client id).
+      NOTE: The PayPal SECRET MUST NEVER be included in client-side HTML or JS.
+      Set PAYPAL_CLIENT_ID and PAYPAL_SECRET as environment variables on the server and
+      configure payments_paypal.py to read them (PAYPAL_SECRET used only server-side).
+    -->
+
+    <!-- Replaced placeholder with your sandbox client-id (copied from cart.html) -->
+    <script
+        src="https://www.paypal.com/sdk/js?client-id=AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f&currency=USD"></script>
+
+    <script src="{{ url_for('static', filename='js/paypal.js') }}"></script>
 
     <script>
         // Use relative API base so this works in deployment and locally
@@ -314,11 +330,12 @@
                 const today = new Date().toISOString().slice(0, 10);
                 let options = '<option value="">-- None --</option>';
                 availablePromos.forEach(p => {
-                    if (p.active &&
-                        (!p.start_date || p.start_date <= today) &&
-                        (!p.end_date || p.end_date >= today)) {
-                        options += `<option value="${p.code}" data-percent="${p.percent || 0}">${p.code} ${p.description ? '(' + p.description + ')' : ''}</option>`;
+                    // use discount_value for percent when discount_type == 'percent'
+                    let percent = 0;
+                    if (p.discount_type === 'percent') {
+                        percent = parseFloat(p.discount_value || 0) || 0;
                     }
+                    options += `<option value="${p.code}" data-percent="${percent}">${p.code} ${p.description ? '(' + p.description + ')' : ''}</option>`;
                 });
                 promoSelect.innerHTML = options;
             } catch (e) {
@@ -331,8 +348,9 @@
                 const code = this.value || '';
                 document.getElementById('promo_code_hidden').value = code;
                 const found = availablePromos.find(x => x.code === code);
-                const percent = found ? (parseFloat(found.percent) || 0) : 0;
+                const percent = found && found.discount_type === 'percent' ? (parseFloat(found.discount_value) || 0) : 0;
                 document.getElementById('promoMsg').innerText = percent > 0 ? `Promo will apply ${percent}% off.` : '';
+                // Re-render summary to reflect promo selection
                 renderCartSummary();
             });
         }
@@ -390,7 +408,6 @@
             const container = document.getElementById('cartSummarySection');
             if (!cart || !cart.length) {
                 container.innerHTML = '<div class="empty-cart">Your cart is empty.</div>';
-                // we'll call updatePaymentButtonsStateCheckout() to sync visuals
                 updatePaymentButtonsStateCheckout();
                 return;
             }
@@ -418,16 +435,34 @@
                     <td style="text-align:right;">${formatPriceInteger(itemTotal)}</td>
                 </tr>`;
             });
-            const discountedTotal = subtotal * (1 - (checkoutDiscountPercent || 0) / 100);
+
+            // apply global discount and optionally promo percent selected in the summary select
+            const promoSelect = document.getElementById('promo_code_summary');
+            let promoPercent = 0;
+            if (promoSelect) {
+                const sel = promoSelect.value;
+                const found = availablePromos.find(x => x.code === sel);
+                if (found && found.discount_type === 'percent') {
+                    promoPercent = parseFloat(found.discount_value || 0) || 0;
+                }
+            }
+
+            const globalPercent = checkoutDiscountPercent || 0;
+            let combinedPercent = globalPercent + promoPercent;
+            if (combinedPercent > 95) combinedPercent = 95;
+            const discountAmount = subtotal * (combinedPercent / 100);
+            const discountedTotal = subtotal - discountAmount;
+
             html += `</tbody>
                 <tfoot>
                     <tr class="total-row"><td></td><td style="font-weight:700;">Subtotal</td><td style="text-align:right;font-weight:700;">${formatPriceInteger(subtotal)}</td></tr>
+                    ${globalPercent > 0 ? `<tr class="total-row"><td></td><td style="font-weight:700;color:#b8860b;">Auto Discount (${globalPercent}%)</td><td style="text-align:right;color:#b8860b;">-${formatPriceInteger(subtotal * (globalPercent / 100))}</td></tr>` : ''}
+                    ${promoPercent > 0 ? `<tr class="total-row"><td></td><td style="font-weight:700;color:#b8860b;">Promo (${promoPercent}%)</td><td style="text-align:right;color:#b8860b;">-${formatPriceInteger(subtotal * (promoPercent / 100))}</td></tr>` : ''}
                     <tr class="total-row"><td></td><td style="font-weight:700;">Total (after discount)</td><td style="text-align:right;color:#27ae60;font-weight:700;">${formatPriceInteger(discountedTotal)}</td></tr>
                 </tfoot>
             </table>`;
             container.innerHTML = html;
 
-            // ensure buttons reflect payment selection and cart state
             updatePaymentButtonsStateCheckout();
         }
 
@@ -523,12 +558,13 @@
                 localStorage.removeItem('cart');
                 renderCartSummary();
                 setTimeout(() => {
-                    window.location.href = "{{ url_for('index') }}";
+                    window.location.href = "{{ url_for('main.index') }}";
                 }, 2400);
             }
         });
 
-        document.getElementById('buyNowBtn').addEventListener('click', async function () {
+        // Enhanced Buy Now handler with friendly guidance on PayPal failures
+        async function handleBuyNowClick_checkout() {
             const customer = document.getElementById('customer').value || '';
             const email = document.getElementById('email').value || '';
             const phone = document.getElementById('phone').value || '';
@@ -545,28 +581,74 @@
 
             await logOrderAttemptsForCart('CheckedOut');
 
-            const results = await submitOrders(customer, email, phone, address, payment_method, promo_code, dateVal);
+            // Save customer and items for return page
+            const customerObj = { name: customer, email: email, phone: phone, address: address };
+            try { localStorage.setItem('paypal_customer', JSON.stringify(customerObj)); } catch (e) { /* ignore */ }
 
-            const anyFailed = results.some(r => !r.ok);
-            if (anyFailed) {
-                orderMsg.innerHTML = '<div style="color:#e74c3c;font-weight:700;">Order failed for one or more items.</div>';
-                updatePaymentButtonsStateCheckout();
+            const cartItems = getCart() || [];
+            const itemsForServer = cartItems.map(i => ({
+                id: i.id || i.product_id || '',
+                title: i.title || i.name || '',
+                unit_price: parseFloat(i.price || 0),
+                quantity: parseInt(i.quantity || i.qty || 1, 10),
+                currency: 'USD'
+            }));
+            try { localStorage.setItem('paypal_items', JSON.stringify(itemsForServer)); } catch (e) { /* ignore */ }
+
+            // Try to initiate PayPal card checkout using the helper in app/static/js/paypal.js
+            if (typeof window.initiateCardCheckout === 'function') {
+                try {
+                    await window.initiateCardCheckout(itemsForServer, { currency: 'USD', returnUrl: window.location.origin + '/paypal/return' });
+                    // If the helper redirects to PayPal, execution will not continue here.
+                } catch (err) {
+                    console.error('initiateCardCheckout error', err);
+                    const detail = (err && err.message) ? err.message : String(err);
+                    if (detail.toLowerCase().includes('401') || detail.toLowerCase().includes('unauthorized')) {
+                        orderMsg.innerHTML = `<div style="color:#e74c3c;font-weight:700;">Payment provider credentials appear missing or invalid on the server.</div>
+                        <div style="color:#666;margin-top:8px;">Please ensure PAYPAL_CLIENT_ID and PAYPAL_SECRET are set as environment variables on the server (use sandbox values for development), and restart the application.</div>
+                        <div style="color:#666;margin-top:8px;font-size:0.9em;">Server error details: ${detail}</div>`;
+                    } else {
+                        orderMsg.innerHTML = `<div style="color:#e74c3c;font-weight:700;">Failed to start card (PayPal) checkout.</div><div style="color:#666;margin-top:8px;font-size:0.9em;">${detail}</div>`;
+                    }
+                    setButtonState(document.getElementById('checkoutBtn'), true);
+                    setButtonState(document.getElementById('buyNowBtn'), true);
+                    updatePaymentButtonsStateCheckout();
+                }
             } else {
-                orderMsg.innerHTML = `<div style="color:#27ae60;font-weight:700;">Payment successful. Thank you! Redirecting...</div>`;
-                localStorage.removeItem('cart');
-                renderCartSummary();
-                setTimeout(() => window.location.href = "{{ url_for('index') }}", 2000);
+                // No PayPal helper present (JS not loaded); show message and keep fallback behavior
+                orderMsg.innerHTML = '<div style="color:#e74c3c;font-weight:700;">Card checkout is not available on this page.</div>';
+                updatePaymentButtonsStateCheckout();
             }
+        }
+
+        document.getElementById('buyNowBtn').addEventListener('click', function () {
+            handleBuyNowClick_checkout();
         });
 
         // sync on select change
         document.getElementById('paymentSelect').addEventListener('change', updatePaymentButtonsStateCheckout);
 
         (async function init() {
+            // ensure the automatic discount is loaded before rendering so totals reflect it immediately
             await fetchDiscountPercent();
             await loadActivePromos();
             renderCartSummary();
             updatePaymentButtonsStateCheckout();
+
+            // If the PayPal SDK loaded and the container exists, attempt to render PayPal buttons on load.
+            // Also safeguard against rendering into a hidden container; this page shows the container so immediate render is fine.
+            try {
+                if (window.paypal && document.querySelector('#paypal-button-container')) {
+                    // Protect against double-render
+                    const container = document.querySelector('#paypal-button-container');
+                    if (!container.innerHTML.trim()) {
+                        renderPayPalButtons('#paypal-button-container', { currency: 'USD', successUrl: '/' });
+                    }
+                }
+            } catch (err) {
+                console.warn('PayPal render failed on init', err);
+            }
+
             setInterval(async () => {
                 const prev = checkoutDiscountPercent;
                 await fetchDiscountPercent();

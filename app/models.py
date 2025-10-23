@@ -1,3 +1,4 @@
+# app/models.py
 from flask import current_app
 from . import db
 from datetime import datetime
@@ -90,6 +91,98 @@ class OrderAttempt(db.Model):
     status = db.Column(db.String)
     timestamp = db.Column(
         db.String, default=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
+# -------------------------
+# New Setting model
+# -------------------------
+class Setting(db.Model):
+    """
+    Simple key/value table for site-wide settings.
+    key: short string used as primary key (e.g. 'checkout_discount')
+    value: stored as text (we store numeric percent as string here)
+    """
+    __tablename__ = "setting"
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.Text, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Setting {self.key}={self.value}>"
+
+
+# -------------------------
+# Story model for content backend (updated with 'section' and 'position')
+# -------------------------
+class Story(db.Model):
+    """
+    Stories / content entries for the content pages.
+
+    Fields:
+      - id: primary key
+      - title: human-friendly title
+      - slug: URL-friendly unique slug used by /story/<slug> and /content-api/pages/<slug>
+      - section: optional grouping (e.g. 'history', 'about')
+      - excerpt: short summary used in lists
+      - body_html: HTML content stored as text (produced by the WYSIWYG editor)
+      - author: author name
+      - featured_image: stored path (uploads/content/...), or absolute URL
+      - published: boolean flag for public visibility
+      - published_at: datetime when published (set when publishing)
+      - position: integer used for manual prominence ordering (higher values appear first)
+      - created_at / updated_at
+    """
+    __tablename__ = "story"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    slug = db.Column(db.String(255), unique=True, nullable=False)
+    section = db.Column(db.String(64), nullable=True)
+    excerpt = db.Column(db.Text, nullable=True)
+    body_html = db.Column(db.Text, nullable=True)
+    author = db.Column(db.String(120), nullable=True)
+    # stored relative path like 'uploads/content/filename.jpg' or absolute URL
+    featured_image = db.Column(db.String, nullable=True)
+    published = db.Column(db.Boolean, default=False)
+    published_at = db.Column(db.DateTime, nullable=True)
+    position = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_public_dict(self):
+        """
+        Return the public-facing JSON representation used by the content API.
+        Normalize featured_image to a browser URL.
+        """
+        img_url = None
+        if self.featured_image:
+            # featured_image may be an absolute URL, a root-relative URL, or a stored relative path.
+            if isinstance(self.featured_image, str):
+                if self.featured_image.startswith("http://") or self.featured_image.startswith("https://"):
+                    img_url = self.featured_image
+                elif self.featured_image.startswith("/"):
+                    img_url = self.featured_image
+                else:
+                    img_url = f"/static/{self.featured_image.lstrip('/')}"
+        return {
+            "id": self.id,
+            "title": self.title,
+            "slug": self.slug,
+            "section": self.section or "",
+            "excerpt": self.excerpt or "",
+            "body_html": self.body_html or "",
+            "author": self.author or "",
+            "featured_image": img_url,
+            "published": bool(self.published),
+            "published_at": self.published_at.isoformat() if self.published_at else None,
+            "position": int(self.position or 0),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f"<Story {self.id} {self.slug} section={self.section} published={self.published} pos={self.position}>"
 
 
 def seed_data():
