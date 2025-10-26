@@ -274,7 +274,37 @@
         <div class="modal" id="modalContent"></div>
     </div>
 
+    <!-- Load admin logic -->
     <script src="/static/js/admin.js" defer></script>
+
+    <!-- Defensive inline shim: ensure price-comparison helpers are exposed on window
+         This avoids timing/visibility issues where the inline helper below expects
+         window.loadPriceComparisonSettings_v3 to exist. Keeping this inline means
+         you don't need to add an extra file to the repo to get the quick fix. -->
+    <script defer>
+        (function () {
+            if (typeof window === 'undefined') return;
+            try {
+                if (typeof loadPriceComparisonSettings_v3 === 'function' && typeof window.loadPriceComparisonSettings_v3 !== 'function') {
+                    window.loadPriceComparisonSettings_v3 = loadPriceComparisonSettings_v3;
+                }
+                if (typeof savePriceComparisonSettings_v3 === 'function' && typeof window.savePriceComparisonSettings_v3 !== 'function') {
+                    window.savePriceComparisonSettings_v3 = savePriceComparisonSettings_v3;
+                }
+                if (typeof createPcRow_v3 === 'function' && typeof window.createPcRow_v3 !== 'function') {
+                    window.createPcRow_v3 = createPcRow_v3;
+                }
+                if (typeof collectPcTable_v3 === 'function' && typeof window.collectPcTable_v3 !== 'function') {
+                    window.collectPcTable_v3 = collectPcTable_v3;
+                }
+                if (window.console && typeof window.console.debug === 'function') {
+                    console.debug('admin: price-comparison helpers attached to window (if present)');
+                }
+            } catch (e) {
+                try { console.warn('admin: failed to attach price-comparison helpers', e); } catch (ignore) { /* ignore */ }
+            }
+        })();
+    </script>
 
     <!-- New inline script to auto-populate "Our Price" from the product DB.
          This preserves existing admin.js behavior (which still creates table rows and

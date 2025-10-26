@@ -46,7 +46,7 @@ fi
 git push --set-upstream origin "$BRANCH"
 
 
-his is an e-commerce backend built with Flask, SQLAlchemy, and PostgreSQL (compatible with SQLite for local development). It provides RESTful API endpoints for managing brands, products, homepage sections, orders, coupons, and more. The project is structured for easy deployment to [Render](https://render.com/) and supports email notifications for orders.
+This is an e-commerce backend built with Flask, SQLAlchemy, and PostgreSQL (compatible with SQLite for local development). It provides RESTful API endpoints for managing brands, products, homepage sections, orders, coupons, and more. The project is structured for easy deployment to [Render](https://render.com/) and supports email notifications for orders.
 
 ---
 
