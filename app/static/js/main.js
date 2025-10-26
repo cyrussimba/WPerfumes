@@ -20,12 +20,81 @@ const SECTIONS = {
     offers: "Hot Offers"
 };
 
+// FX: currency conversion support (GBP primary, show USD equivalents)
+let fxRateGBPtoUSD = null;
+const FX_CACHE_KEY = 'fx_gbp_usd';
+const FX_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function fetchFXRateGBPtoUSD() {
+    try {
+        // Check cache first
+        const raw = localStorage.getItem(FX_CACHE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.rate && parsed.ts && (Date.now() - parsed.ts < FX_TTL_MS)) {
+                fxRateGBPtoUSD = parsed.rate;
+                return fxRateGBPtoUSD;
+            }
+        }
+
+        // Use free exchangerate.host endpoint (no API key)
+        const res = await fetch('https://api.exchangerate.host/latest?base=GBP&symbols=USD');
+        if (!res.ok) throw new Error(`FX fetch failed: ${res.status}`);
+        const js = await res.json();
+        const rate = Number(js?.rates?.USD || 0);
+        if (rate && rate > 0) {
+            fxRateGBPtoUSD = rate;
+            localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rate, ts: Date.now() }));
+            return rate;
+        } else {
+            throw new Error('Invalid rate from FX provider');
+        }
+    } catch (err) {
+        console.warn('fetchFXRateGBPtoUSD failed, using cached or fallback', err);
+        // Try to use cached even if stale
+        try {
+            const raw = localStorage.getItem(FX_CACHE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.rate) {
+                    fxRateGBPtoUSD = parsed.rate;
+                    return fxRateGBPtoUSD;
+                }
+            }
+        } catch (e) { /* ignore */ }
+        // fallback conservative estimate if nothing else available
+        if (!fxRateGBPtoUSD) fxRateGBPtoUSD = 1.25; // conservative fallback
+        return fxRateGBPtoUSD;
+    }
+}
+
+function formatCurrency(value, currency = 'GBP') {
+    const n = Number(value) || 0;
+    if (currency === 'GBP') {
+        try {
+            return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n);
+        } catch (e) {
+            return `£${Math.round(n)}`;
+        }
+    } else if (currency === 'USD') {
+        const rate = fxRateGBPtoUSD || 1.25;
+        const converted = n * rate;
+        try {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(converted);
+        } catch (e) {
+            return `$${Math.round(converted)}`;
+        }
+    }
+    return String(n);
+}
+
 // Helpers for rounding/display
 function roundInteger(value) {
     return Math.round(Number(value) || 0);
 }
 function formatPriceInteger(value) {
-    return `$${roundInteger(value)}`;
+    // Backwards-compatible alias: shows GBP by default
+    return formatCurrency(value, 'GBP');
 }
 
 // Unified Cart state, loaded from localStorage
@@ -68,6 +137,7 @@ function setButtonState(btn, enabled, opts = {}) {
 }
 
 // --- PROMO DISCOUNT FETCH & DISPLAY ---
+// (enhanced to fetch FX as well and re-render where needed)
 async function fetchAndDisplayDiscountInfo() {
     let percent = 0;
     try {
@@ -83,6 +153,9 @@ async function fetchAndDisplayDiscountInfo() {
         console.warn('fetchAndDisplayDiscountInfo error', err);
     }
     checkoutDiscountPercent = percent;
+
+    // Also fetch FX rate so USD equivalents can be shown
+    await fetchFXRateGBPtoUSD();
 
     // Cart Modal info
     const cartDiscDiv = document.getElementById('cartDiscountInfo');
@@ -133,7 +206,7 @@ function showOrderConfirmation(total) {
             Your Order has been received. Please check your Email.
         </div>
         <div class="order-total-msg" style="color:#27ae60;font-size:1.05em;">
-            Total is ${formatPriceInteger(total)}
+            Total is ${formatCurrency(total, 'GBP')} (${formatCurrency(total, 'USD')})
         </div>
     `;
         const bg = document.getElementById('orderConfirmationModalBg');
@@ -197,7 +270,7 @@ function showCartModal() {
     renderCartModal();
 }
 function hideCartModal() {
-    const bg = document.getElementById("cartModalBg");
+    const bg = document.getElementById('cartModalBg');
     if (bg) bg.style.display = 'none';
 }
 function renderCartModal() {
@@ -223,13 +296,15 @@ function renderCartModal() {
             discountedPrice = price * (1 - checkoutDiscountPercent / 100);
         }
         discountedTotal += discountedPrice;
+        const priceGBP = formatCurrency((item.price || 0) * (item.qty || item.quantity || 1), 'GBP');
+        const priceUSD = formatCurrency((item.price || 0) * (item.qty || item.quantity || 1), 'USD');
         html += `
         <div class="cart-list-item" data-id="${item.id}">
             <div class="cart-list-details">
                 <img class="cart-list-img" src="${item.image_url || item.image || ''}" alt="${item.title}">
                 <div>
                     <div class="cart-list-title">${item.title}</div>
-                    <div class="cart-list-price">$${(item.price || 0).toFixed(2)}</div>
+                    <div class="cart-list-price">${priceGBP} <span class="small-muted" style="font-size:0.95em;margin-left:6px;">≈ ${priceUSD}</span></div>
                 </div>
             </div>
             <div class="cart-qty-controls">
@@ -240,9 +315,9 @@ function renderCartModal() {
         </div>`;
     }
     cartListDiv.innerHTML = html;
-    let totalHtml = `Total: ${formatPriceInteger(total)}`;
+    let totalHtml = `Total: ${formatCurrency(total, 'GBP')} (${formatCurrency(total, 'USD')})`;
     if (checkoutDiscountPercent > 0) {
-        totalHtml += `<br><span style="color:#27ae60;font-size:0.98em;">After Discount: ${formatPriceInteger(discountedTotal)} (-${checkoutDiscountPercent}%)</span>`;
+        totalHtml += `<br><span style="color:#27ae60;font-size:0.98em;">After Discount: ${formatCurrency(discountedTotal, 'GBP')} (${formatCurrency(discountedTotal, 'USD')}) (-${checkoutDiscountPercent}%)</span>`;
     }
     const cartTotalEl = document.getElementById('cartModalTotal');
     if (cartTotalEl) cartTotalEl.innerHTML = totalHtml;
@@ -266,12 +341,7 @@ window.updateCartModalQuantity = function (idx, change) {
 }
 
 // --- Checkout Modal Functions ---
-/*
- * New: Attempt to render PayPal buttons inside the checkout modal.
- * - Uses the helper renderPayPalButtons(selector, opts) defined in static/js/paypal.js
- * - Safe: only runs if window.paypal is available and the container exists.
- * - Retries for a few seconds in case the SDK or helper haven't loaded yet.
- */
+// (tryRenderModalPayPal etc. remain unchanged, but renderCheckoutView uses formatCurrency)
 function tryRenderModalPayPal(opts = { currency: 'USD', successUrl: '/' }) {
     const containerSelector = '#modal_paypal_button_container';
     const container = document.querySelector(containerSelector);
@@ -426,7 +496,7 @@ function renderCheckoutView() {
                 <span style="min-width: 20px; text-align: center;">${item.qty || item.quantity || 1}</span>
                 <button type="button" onclick="updateCheckoutQuantity(${idx}, 1)" class="qty-control-btn">+</button>
             </td>
-            <td>$${((item.price || 0) * (item.qty || item.quantity || 1)).toFixed(2)}</td>
+            <td>${formatCurrency((item.price || 0) * (item.qty || item.quantity || 1), 'GBP')} <span class="small-muted" style="margin-left:6px;">≈ ${formatCurrency((item.price || 0) * (item.qty || item.quantity || 1), 'USD')}</span></td>
             <td>
                 <button type="button" onclick="removeCheckoutItem(${idx})" 
                         style="background:#e74c3c;padding:2px 9px;border-radius:4px; font-weight: bold; width: 30px; height: 30px; line-height: 1;">✕</button>
@@ -436,18 +506,18 @@ function renderCheckoutView() {
         <tfoot>
             <tr>
                 <td colspan="3" class="total">Total:</td>
-                <td class="total">${formatPriceInteger(getCartTotal())}</td>
+                <td class="total">${formatCurrency(getCartTotal(), 'GBP')} (${formatCurrency(getCartTotal(), 'USD')})</td>
             </tr>
             ${(checkoutDiscountPercent || (appliedPromo && promoDiscountType && promoDiscountValue)) ? `
             <tr>
                 <td colspan="3" class="total" style="color:#27ae60;">${appliedPromo ? `Promo (${appliedPromo})` : 'Discount'}:</td>
                 <td class="total" style="color:#27ae60;">
-                    -${formatPriceInteger(getCartTotal() - getDiscountedTotal())}
+                    -${formatCurrency(getCartTotal() - getDiscountedTotal(), 'GBP')} (${formatCurrency(getCartTotal() - getDiscountedTotal(), 'USD')})
                 </td>
             </tr>
             <tr>
                 <td colspan="3" class="total">Total after Discount:</td>
-                <td class="total"><b>${formatPriceInteger(getDiscountedTotal())}</b></td>
+                <td class="total"><b>${formatCurrency(getDiscountedTotal(), 'GBP')} (${formatCurrency(getDiscountedTotal(), 'USD')})</b></td>
             </tr>` : ''}
         </tfoot>
     </table>`;
@@ -494,6 +564,7 @@ async function logOrderAttempt(item, status = "Carted") {
 }
 
 // --- Homepage Loading & Product Listeners ---
+// (no changes here beyond ensuring FX is fetched on load)
 function createSignatureSection(products) {
     let html = `<section id="signature">
         <div class="section-heading-row signature">
@@ -514,7 +585,7 @@ function createSignatureSection(products) {
                 </div>
                 <div class="card-details">
                     <div class="card-name">${p.title}</div>
-                    <small>$${p.price}</small>
+                    <small>${formatCurrency(p.price || 0, 'GBP')}</small>
                 </div>
                 <button class="add-cart-btn" data-product='${JSON.stringify(productObj)}' aria-label="Buy Now">Buy Now</button>
             </div>`;
@@ -548,7 +619,7 @@ function createSection(sectionKey, products) {
                 </div>
                 <div class="card-details">
                     <div class="card-name">${p.title}</div>
-                    <small>$${p.price}</small>
+                    <small>${formatCurrency(p.price || 0, 'GBP')}</small>
                 </div>
                 <button class="add-cart-btn" data-product='${JSON.stringify(productObj)}' aria-label="Buy Now">Buy Now</button>
             </div>`;
@@ -650,7 +721,7 @@ function showProductDetailOverlay(card, brand, title) {
                 <img src="${product.image_url}" alt="${product.title}" />
                 <h2>${product.title}</h2>
                 <div class="overlay-brand">${product.brand}</div>
-                <div class="overlay-price">$${product.price}</div>
+                <div class="overlay-price">${formatCurrency(product.price || 0, 'GBP')}</div>
                 <div class="overlay-desc">${product.description}</div>
                 <div class="overlay-notes"><b>Key Notes:</b> ${Array.isArray(product.keyNotes) ? product.keyNotes.join(', ') : product.keyNotes}</div>
                 <div class="overlay-tags"><b>Tags:</b> ${product.tags || 'None'}</div>
@@ -979,6 +1050,14 @@ document.addEventListener('DOMContentLoaded', function () {
     loadHomepageSections();
     updateCartCount();
     togglePaymentButtons();
+
+    // Fetch FX rate early so conversions appear promptly
+    fetchFXRateGBPtoUSD().then(() => {
+        // Re-render areas that show conversion (if already rendered)
+        if (document.getElementById('cartList')) renderCartModal();
+        if (document.getElementById('cartSection')) renderCheckoutView();
+        // homepage product price labels will be correct on next load/render
+    });
 
     // --- Hero Audio Player Logic ---
     try {

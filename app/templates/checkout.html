@@ -283,9 +283,62 @@
             return `/static/${url}`;
         }
 
-        function formatPriceInteger(value) {
+        // Local currency helpers (GBP primary, show USD equivalents)
+        let fxRateGBPtoUSD = null;
+        const FX_CACHE_KEY = 'fx_gbp_usd';
+        const FX_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+        async function fetchFX() {
+            try {
+                const raw = localStorage.getItem(FX_CACHE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && parsed.rate && parsed.ts && (Date.now() - parsed.ts < FX_TTL_MS)) {
+                        fxRateGBPtoUSD = parsed.rate;
+                        return fxRateGBPtoUSD;
+                    }
+                }
+                const res = await fetch('https://api.exchangerate.host/latest?base=GBP&symbols=USD');
+                if (!res.ok) throw new Error('Failed to fetch FX');
+                const js = await res.json();
+                const rate = Number(js?.rates?.USD || 0);
+                if (rate && rate > 0) {
+                    fxRateGBPtoUSD = rate;
+                    localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rate, ts: Date.now() }));
+                    return rate;
+                }
+            } catch (e) {
+                console.warn('fetchFX failed', e);
+                try {
+                    const raw = localStorage.getItem(FX_CACHE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (parsed && parsed.rate) fxRateGBPtoUSD = parsed.rate;
+                    }
+                } catch (e) { /* ignore */ }
+                if (!fxRateGBPtoUSD) fxRateGBPtoUSD = 1.25;
+                return fxRateGBPtoUSD;
+            }
+        }
+
+        function formatCurrency(value, currency) {
             const n = Number(value) || 0;
-            return `$${Math.round(n)}`;
+            if (currency === 'GBP') {
+                try {
+                    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n);
+                } catch (e) { return `£${Math.round(n)}`; }
+            } else if (currency === 'USD') {
+                const rate = fxRateGBPtoUSD || 1.25;
+                const converted = n * rate;
+                try {
+                    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(converted);
+                } catch (e) { return `$${Math.round(converted)}`; }
+            }
+            return String(n);
+        }
+
+        function formatPriceInteger(value) {
+            return formatCurrency(value, 'GBP');
         }
 
         function getCart() { return JSON.parse(localStorage.getItem('cart') || '[]'); }
@@ -432,7 +485,7 @@
                         </div>
                     </td>
                     <td style="text-align:center;">${qty}</td>
-                    <td style="text-align:right;">${formatPriceInteger(itemTotal)}</td>
+                    <td style="text-align:right;">${formatCurrency(itemTotal, 'GBP')} <div class="small-muted" style="display:inline-block;margin-left:8px;">≈ ${formatCurrency(itemTotal, 'USD')}</div></td>
                 </tr>`;
             });
 
@@ -455,10 +508,10 @@
 
             html += `</tbody>
                 <tfoot>
-                    <tr class="total-row"><td></td><td style="font-weight:700;">Subtotal</td><td style="text-align:right;font-weight:700;">${formatPriceInteger(subtotal)}</td></tr>
-                    ${globalPercent > 0 ? `<tr class="total-row"><td></td><td style="font-weight:700;color:#b8860b;">Auto Discount (${globalPercent}%)</td><td style="text-align:right;color:#b8860b;">-${formatPriceInteger(subtotal * (globalPercent / 100))}</td></tr>` : ''}
-                    ${promoPercent > 0 ? `<tr class="total-row"><td></td><td style="font-weight:700;color:#b8860b;">Promo (${promoPercent}%)</td><td style="text-align:right;color:#b8860b;">-${formatPriceInteger(subtotal * (promoPercent / 100))}</td></tr>` : ''}
-                    <tr class="total-row"><td></td><td style="font-weight:700;">Total (after discount)</td><td style="text-align:right;color:#27ae60;font-weight:700;">${formatPriceInteger(discountedTotal)}</td></tr>
+                    <tr class="total-row"><td></td><td style="font-weight:700;">Subtotal</td><td style="text-align:right;font-weight:700;">${formatCurrency(subtotal, 'GBP')} (${formatCurrency(subtotal, 'USD')})</td></tr>
+                    ${globalPercent > 0 ? `<tr class="total-row"><td></td><td style="font-weight:700;color:#b8860b;">Auto Discount (${globalPercent}%)</td><td style="text-align:right;color:#b8860b;">-${formatCurrency(subtotal * (globalPercent / 100), 'GBP')} (${formatCurrency(subtotal * (globalPercent / 100), 'USD')})</td></tr>` : ''}
+                    ${promoPercent > 0 ? `<tr class="total-row"><td></td><td style="font-weight:700;color:#b8860b;">Promo (${promoPercent}%)</td><td style="text-align:right;color:#b8860b;">-${formatCurrency(subtotal * (promoPercent / 100), 'GBP')} (${formatCurrency(subtotal * (promoPercent / 100), 'USD')})</td></tr>` : ''}
+                    <tr class="total-row"><td></td><td style="font-weight:700;">Total (after discount)</td><td style="text-align:right;color:#27ae60;font-weight:700;">${formatCurrency(discountedTotal, 'GBP')} (${formatCurrency(discountedTotal, 'USD')})</td></tr>
                 </tfoot>
             </table>`;
             container.innerHTML = html;
@@ -632,6 +685,8 @@
             // ensure the automatic discount is loaded before rendering so totals reflect it immediately
             await fetchDiscountPercent();
             await loadActivePromos();
+            // ensure FX is fetched so USD equivalents display
+            await fetchFX();
             renderCartSummary();
             updatePaymentButtonsStateCheckout();
 
@@ -653,6 +708,9 @@
                 const prev = checkoutDiscountPercent;
                 await fetchDiscountPercent();
                 if (prev !== checkoutDiscountPercent) renderCartSummary();
+                // refresh FX too periodically
+                await fetchFX();
+                renderCartSummary();
             }, 30000);
         })();
     </script>

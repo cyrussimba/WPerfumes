@@ -342,9 +342,19 @@
             return `/static/${url}`;
         }
 
-        function formatPriceInteger(value) {
+        // Formatters (kept minimal here; main.js now does heavier lifting when loaded)
+        function formatCurrencyLocal(value, currency) {
             const n = Number(value) || 0;
-            return `$${Math.round(n)}`;
+            try {
+                if (currency === 'GBP') return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n);
+                if (currency === 'USD') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+            } catch (e) { /* fall through */ }
+            return currency === 'GBP' ? `£${Math.round(n)}` : `$${Math.round(n)}`;
+        }
+
+        function formatPriceInteger(value) {
+            // Keep compatibility for templates that expect this name; primary display is GBP
+            return formatCurrencyLocal(value, 'GBP');
         }
 
         let cart = JSON.parse(localStorage.getItem('cart') || "[]");
@@ -355,6 +365,57 @@
         let availablePromos = [];
         let selectedPromoPercent = 0;
         let selectedPromoCode = '';
+
+        // FX support: mirror logic from main.js if main.js isn't loaded yet
+        let fxRateGBPtoUSD = null;
+        const FX_CACHE_KEY = 'fx_gbp_usd';
+        const FX_TTL_MS = 60 * 60 * 1000;
+        async function fetchFX() {
+            try {
+                const raw = localStorage.getItem(FX_CACHE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && parsed.rate && parsed.ts && (Date.now() - parsed.ts < FX_TTL_MS)) {
+                        fxRateGBPtoUSD = parsed.rate;
+                        return fxRateGBPtoUSD;
+                    }
+                }
+                const res = await fetch('https://api.exchangerate.host/latest?base=GBP&symbols=USD');
+                if (!res.ok) throw new Error('Failed FX fetch');
+                const js = await res.json();
+                const rate = Number(js?.rates?.USD || 0);
+                if (rate && rate > 0) {
+                    fxRateGBPtoUSD = rate;
+                    localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ rate, ts: Date.now() }));
+                    return rate;
+                }
+            } catch (e) {
+                console.warn('fetchFX failed', e);
+                try {
+                    const raw = localStorage.getItem(FX_CACHE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (parsed && parsed.rate) fxRateGBPtoUSD = parsed.rate;
+                    }
+                } catch (e) { /* ignore */ }
+                if (!fxRateGBPtoUSD) fxRateGBPtoUSD = 1.25;
+                return fxRateGBPtoUSD;
+            }
+        }
+
+        function formatCurrency(value, currency) {
+            const n = Number(value) || 0;
+            if (currency === 'GBP') {
+                try {
+                    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(n);
+                } catch (e) { return `£${Math.round(n)}`; }
+            }
+            const rate = fxRateGBPtoUSD || 1.25;
+            const converted = n * rate;
+            try {
+                return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(converted);
+            } catch (e) { return `$${Math.round(converted)}`; }
+        }
 
         // Fetch global discount percent from server (GET /api/settings/checkout_discount)
         async function fetchDiscountPercent() {
@@ -508,7 +569,7 @@
                                 <button class="qty-control-btn" onclick="updateQuantity(${i}, 1)" aria-label="Increase quantity">+</button>
                             </div>
                         </td>
-                        <td>${formatPriceInteger(totalPrice)}</td>
+                        <td>${formatCurrency(totalPrice, 'GBP')} <div class="small-muted" style="display:inline-block;margin-left:6px;">≈ ${formatCurrency(totalPrice, 'USD')}</div></td>
                         <td><button class="remove-btn" onclick="removeCartItem(${i})" aria-label="Remove item">✕</button></td>
                     </tr>
                 `;
@@ -537,15 +598,15 @@
                     <tfoot>
                         <tr class="total-row">
                             <td colspan="2" style="font-weight:600;">Subtotal</td>
-                            <td style="font-weight:bold;">${formatPriceInteger(subtotal)}</td>
+                            <td style="font-weight:bold;">${formatCurrency(subtotal, 'GBP')} (${formatCurrency(subtotal, 'USD')})</td>
                         </tr>
                         ${globalPercent > 0 ? `<tr class="total-row">
                             <td colspan="2" style="font-weight:600;color:#b8860b;">Auto Discount (${globalPercent}%)</td>
-                            <td style="text-align:right;color:#b8860b;">-${formatPriceInteger(discountAmount)}</td>
+                            <td style="text-align:right;color:#b8860b;">-${formatCurrency(discountAmount, 'GBP')} (${formatCurrency(discountAmount, 'USD')})</td>
                         </tr>` : ''}
                         <tr class="total-row">
                             <td colspan="2" style="font-weight:700;">Total</td>
-                            <td style="text-align:right;color:#27ae60;font-weight:700;">${formatPriceInteger(totalAfterGlobal)}</td>
+                            <td style="text-align:right;color:#27ae60;font-weight:700;">${formatCurrency(totalAfterGlobal, 'GBP')} (${formatCurrency(totalAfterGlobal, 'USD')})</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -587,7 +648,7 @@
                         </div>
                     </td>
                     <td style="text-align:center;">${qty}</td>
-                    <td style="text-align:right;">${formatPriceInteger(itemTotal)}</td>
+                    <td style="text-align:right;">${formatCurrency(itemTotal, 'GBP')} <span class="small-muted" style="margin-left:8px;">≈ ${formatCurrency(itemTotal, 'USD')}</span></td>
                 </tr>`;
             });
             // combined percent = global checkout discount + selected promo percent (if promo is percent-based)
@@ -598,9 +659,9 @@
 
             html += `</tbody>
                 <tfoot>
-                    <tr class="total-row"><td></td><td style="font-weight:700;">Subtotal</td><td style="text-align:right;font-weight:700;">${formatPriceInteger(subtotal)}</td></tr>
-                    <tr class="total-row"><td></td><td style="font-weight:700;">Discounts</td><td style="text-align:right;color:#b8860b;">-${combinedPercent}% (${formatPriceInteger(discountAmount)})</td></tr>
-                    <tr class="total-row"><td></td><td style="font-weight:700;">Total</td><td style="text-align:right;color:#27ae60;font-weight:700;">${formatPriceInteger(discountedTotal)}</td></tr>
+                    <tr class="total-row"><td></td><td style="font-weight:700;">Subtotal</td><td style="text-align:right;font-weight:700;">${formatCurrency(subtotal, 'GBP')} (${formatCurrency(subtotal, 'USD')})</td></tr>
+                    <tr class="total-row"><td></td><td style="font-weight:700;">Discounts</td><td style="text-align:right;color:#b8860b;">-${combinedPercent}% (${formatCurrency(discountAmount, 'GBP')} / ${formatCurrency(discountAmount, 'USD')})</td></tr>
+                    <tr class="total-row"><td></td><td style="font-weight:700;">Total</td><td style="text-align:right;color:#27ae60;font-weight:700;">${formatCurrency(discountedTotal, 'GBP')} (${formatCurrency(discountedTotal, 'USD')})</td></tr>
                 </tfoot>
             </table>`;
 
@@ -847,6 +908,9 @@
         (async function () {
             // Ensure discount loaded before first render so totals reflect it
             await fetchDiscountPercent();
+
+            // Ensure FX loaded before first render of conversion text
+            await fetchFX();
 
             const current = JSON.parse(localStorage.getItem('cart') || "[]");
             for (const item of current) {

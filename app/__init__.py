@@ -1,13 +1,26 @@
-# app/__init__.py
+"""
+app/__init__.py
+
+Application factory and extension initialization for the WPerfumes Flask app.
+
+This file:
+- Initializes extensions (SQLAlchemy, Mail, Migrate)
+- Normalizes DATABASE_URL (postgres:// -> postgresql://) for SQLAlchemy
+- Provides helper to expose unprefixed endpoint aliases for legacy templates
+- create_app factory registers available blueprints in a fault-tolerant manner
+  (main routes, settings, top-picks stub, content API/admin, search, PayPal payments,
+   and price comparison if the blueprint exists).
+"""
 import os
+import logging
 from flask import Flask
+
+# Extensions (initialized once and bound to app in create_app)
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail
 from flask_cors import CORS
 from flask_migrate import Migrate
-import logging
 
-# Extensions (initialized once and bound to app in create_app)
 db = SQLAlchemy()
 mail = Mail()
 migrate = Migrate()
@@ -29,6 +42,12 @@ def _expose_unprefixed_endpoints(app: Flask, blueprint_name: str) -> None:
     """
     Create alias rules for blueprint endpoints so templates that call
     url_for('some_endpoint') (without blueprint prefix) continue to work.
+
+    Behavior:
+      - For every rule whose endpoint starts with blueprint_name + ".",
+        create an alias endpoint with the blueprint prefix stripped,
+        unless that alias already exists in app.view_functions.
+    This keeps backwards compatibility with templates using unprefixed names.
     """
     created = []
     try:
@@ -38,6 +57,7 @@ def _expose_unprefixed_endpoints(app: Flask, blueprint_name: str) -> None:
                 continue
             unprefixed = ep.split(".", 1)[1]
             if unprefixed in app.view_functions:
+                # alias would collide with existing view function; skip
                 continue
             view_func = app.view_functions.get(ep)
             if view_func is None:
@@ -63,6 +83,13 @@ def _expose_unprefixed_endpoints(app: Flask, blueprint_name: str) -> None:
 def create_app(test_config=None) -> Flask:
     """
     Application factory.
+
+    Example usage:
+        export DATABASE_URL='postgresql://user:pass@host:5432/dbname'
+        flask run
+
+    The function raises RuntimeError if DATABASE_URL is not configured via
+    environment variable or instance/config.py.
     """
     app = Flask(__name__, instance_relative_config=True)
 
@@ -71,6 +98,12 @@ def create_app(test_config=None) -> Flask:
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev-secret-key"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
+
+    # Helpful session cookie defaults for local development:
+    # - SESSION_COOKIE_SAMESITE Lax helps the cookie be sent on top-level navigations.
+    # - SESSION_COOKIE_SECURE should be False for local http; set to True in production.
+    app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
+    app.config.setdefault("SESSION_COOKIE_SECURE", False)
 
     # Load instance config (local override, kept out of VCS)
     app.config.from_pyfile("config.py", silent=True)
@@ -124,6 +157,7 @@ def create_app(test_config=None) -> Flask:
     try:
         from .routes import bp as main_bp
         app.register_blueprint(main_bp)
+        # Create unprefixed aliases for endpoints defined in the main blueprint if requested
         if os.environ.get("EXPOSE_LEGACY_ENDPOINTS", "1") != "0":
             try:
                 _expose_unprefixed_endpoints(app, blueprint_name=main_bp.name)
@@ -142,11 +176,9 @@ def create_app(test_config=None) -> Flask:
 
     # Register top-picks stub blueprint so /api/top-picks endpoints exist for admin/frontend
     try:
-        # the file routes_top_picks_stub.py defines `top_picks_bp = Blueprint("top_picks_bp", __name__)`
         from .routes_top_picks_stub import top_picks_bp
         app.register_blueprint(top_picks_bp)
     except Exception as e:
-        # If import fails, log but continue; admin will see 404 for /api/top-picks until this is fixed.
         app.logger.debug(f"Failed to register top-picks blueprint: {e}")
 
     # Register content blueprint (public content API + minimal admin UI)
@@ -154,8 +186,8 @@ def create_app(test_config=None) -> Flask:
         from .routes_content import content_bp
         # Register content API under /content-api (public read endpoints and admin API)
         app.register_blueprint(content_bp, url_prefix="/content-api")
-        # Expose a convenient alias for the admin UI at /content-admin that renders the same template.
 
+        # Expose a convenient alias for the admin UI at /content-admin that renders the same template.
         @app.route("/content-admin")
         def _content_admin_alias():
             # runtime import to avoid circular import at module load time
@@ -165,6 +197,21 @@ def create_app(test_config=None) -> Flask:
             return render_template("content_admin.html", signin_required=signin_required)
     except Exception as e:
         app.logger.debug(f"Failed to register content blueprint: {e}")
+
+    # Register search blueprint (simple DB-backed search)
+    try:
+        from .routes_search import search_bp
+        app.register_blueprint(search_bp)
+    except Exception as e:
+        app.logger.debug(f"Failed to register search blueprint: {e}")
+
+    # Register price comparison blueprint if present (lightweight scraper + page)
+    try:
+        from .routes_price_comparison import price_cmp_bp
+        app.register_blueprint(price_cmp_bp)
+    except Exception as e:
+        # Not critical if missing; page simply won't exist.
+        app.logger.debug(f"Failed to register price comparison blueprint: {e}")
 
     # Register PayPal payments blueprint if available
     try:
@@ -176,6 +223,7 @@ def create_app(test_config=None) -> Flask:
     except Exception as e:
         app.logger.debug(f"Failed to register PayPal blueprint: {e}")
 
+    # Expose a runtime snapshot of registered routes to the log for debugging
     with app.app_context():
         app.logger.debug("Database configured at: %s",
                          app.config.get("SQLALCHEMY_DATABASE_URI"))
@@ -186,6 +234,7 @@ def create_app(test_config=None) -> Flask:
         except Exception:
             pass
 
+    # If no logging handlers attached (e.g., running via "python -m flask run"), set a basic configuration
     if not app.logger.handlers:
         logging.basicConfig(level=logging.INFO)
 

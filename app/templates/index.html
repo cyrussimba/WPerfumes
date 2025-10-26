@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>WPerfumes — Home</title>
 
-    <!-- Main stylesheet (use Flask url_for to resolve correctly when rendered) -->
+    <!-- Main stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
     <!-- Announcements stylesheet -->
@@ -21,6 +21,9 @@
 
     <!-- Footer stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
+
+    <!-- Search dropdown stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/search.css') }}">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -38,6 +41,20 @@
 
         #homepage-sections {
             margin-top: 18px;
+        }
+
+        /* Reduce search input width so navigation can include an extra tab */
+        .navbar-center .search-container input#siteSearchInput {
+            width: 260px;
+            max-width: 60vw;
+        }
+
+        /* keep it responsive on small screens */
+        @media (max-width: 640px) {
+            .navbar-center .search-container input#siteSearchInput {
+                width: 48vw;
+                max-width: 220px;
+            }
         }
     </style>
 </head>
@@ -70,7 +87,14 @@
                 <li><a href="{{ url_for('main.men') }}">Men</a></li>
                 <li><a href="{{ url_for('main.women') }}">Women</a></li>
                 <li><a href="{{ url_for('main.beauty') }}">Beauty</a></li>
-                <!-- Kept the nav items but point them at static files so they don't call Flask routes -->
+
+                <!-- Use literal path so the link always exists even if blueprint registration fails -->
+                <li><a href="/price-comparison">Compare Prices</a></li>
+
+                <!-- Admin link -->
+                <li><a href="{{ url_for('main.admin_dashboard') }}">Admin</a></li>
+
+                <!-- Static fallbacks for content pages -->
                 <li><a href="/static/pages/history.html">History</a></li>
                 <li><a href="/static/pages/about.html">About Us</a></li>
             </ul>
@@ -135,19 +159,26 @@
     <main id="homepage-sections" class="container" role="main" aria-live="polite">
         <div style="padding:18px;text-align:center;color:#888;">Loading featured collections...</div>
 
-        <!-- If you previously removed the History widget to avoid server queries, keep it removed here.
-             The nav History page now points to a static file instead of a Flask route. -->
+        <!-- Example signature section placeholder (server-side will normally inject product cards) -->
+        <section id="signature" style="margin-top:20px;">
+            <h3>Signature Collections</h3>
+            <div id="signatureProducts" class="product-grid" aria-live="polite">
+                <!-- front-end main.js or server templates should render cards here -->
+            </div>
+        </section>
     </main>
 
-    <section id="dynamicTopPicksByLifestyleContainer" class="container" style="margin-top:18px;"></section>
+    <section id="dynamicTopPicksByLifestyleContainer" class="container" style="margin-top:18px;">
+        <!-- Top picks will be rendered by client script or server -->
+    </section>
 
-    <section id="testimonials">
+    <section id="testimonials" class="container" style="margin-top:28px;">
         <h3>What our customers say</h3>
         <p>"Exquisite selection — fast delivery and authentic products." — A satisfied customer</p>
     </section>
 
-    <!-- Footer Section Imported from static file, replacing old footer -->
-    <footer class="main-footer">
+    <!-- Footer -->
+    <footer class="main-footer" style="margin-top:36px;">
         <div class="footer-card footer-card-1">
             <div>
                 <h3>Connect with Us</h3>
@@ -177,37 +208,39 @@
         </div>
         <div class="footer-card footer-card-2">
             <h2 class="footer-logo">WPerfumes</h2>
-            <div class="footer-link-column" id="footer-column-1">
-                <h4>Company</h4>
-                <!-- Footer About link also points to static file to avoid invoking Flask -->
-                <a href="/static/pages/about.html" class="footer-link">About Us</a>
-                <a href="/vision" class="footer-link">Our Vision</a>
-                <a href="/sustainability" class="footer-link">Sustainability</a>
-                <a href="/careers" class="footer-link">Careers</a>
-            </div>
-            <div class="footer-link-column" id="footer-column-2">
-                <h4>Support</h4>
-                <a href="/contact" class="footer-link">Contact Us</a>
-                <a href="/faq" class="footer-link">FAQ</a>
-                <a href="/shipping-returns" class="footer-link">Shipping & Returns</a>
-                <a href="/privacy" class="footer-link">Privacy Policy</a>
-            </div>
-            <div class="footer-link-column" id="footer-column-3">
-                <h4>Explore</h4>
-                <a href="/best-sellers" class="footer-link">Best Sellers</a>
-                <a href="/gift-sets" class="footer-link">Gift Sets</a>
-                <a href="/scent-finder" class="footer-link">Scent Finder Quiz</a>
-                <a href="/blog" class="footer-link">Blog & News</a>
-            </div>
-            <div class="footer-link-column" id="footer-column-4">
-                <h4>Contact Info</h4>
-                <a href="mailto:support@wperfumes.com" class="footer-link">Email: support@wperfumes.com</a>
-                <a href="tel:+15551234567" class="footer-link">Phone: +1 (555) 123-4567</a>
-                <a href="/contact#address" class="footer-link">Address: 100 Scent Lane, Perfume City</a>
+            <div class="footer-link-columns" style="display:flex;gap:18px;flex-wrap:wrap;">
+                <div class="footer-link-column">
+                    <h4>Company</h4>
+                    <a href="/static/pages/about.html" class="footer-link">About Us</a>
+                    <a href="/vision" class="footer-link">Our Vision</a>
+                    <a href="/sustainability" class="footer-link">Sustainability</a>
+                    <a href="/careers" class="footer-link">Careers</a>
+                </div>
+                <div class="footer-link-column">
+                    <h4>Support</h4>
+                    <a href="/contact" class="footer-link">Contact Us</a>
+                    <a href="/faq" class="footer-link">FAQ</a>
+                    <a href="/shipping-returns" class="footer-link">Shipping & Returns</a>
+                    <a href="/privacy" class="footer-link">Privacy Policy</a>
+                </div>
+                <div class="footer-link-column">
+                    <h4>Explore</h4>
+                    <a href="/best-sellers" class="footer-link">Best Sellers</a>
+                    <a href="/gift-sets" class="footer-link">Gift Sets</a>
+                    <a href="/scent-finder" class="footer-link">Scent Finder Quiz</a>
+                    <a href="/blog" class="footer-link">Blog & News</a>
+                </div>
+                <div class="footer-link-column">
+                    <h4>Contact Info</h4>
+                    <a href="mailto:support@wperfumes.com" class="footer-link">Email: support@wperfumes.com</a>
+                    <a href="tel:+15551234567" class="footer-link">Phone: +1 (555) 123-4567</a>
+                    <a href="/contact#address" class="footer-link">Address: 100 Scent Lane, Perfume City</a>
+                </div>
             </div>
         </div>
     </footer>
 
+    <!-- Overlays / Modals -->
     <div id="productDetailOverlay" aria-hidden="true">
         <button id="overlayCloseBtn" title="Close overlay">✕</button>
         <div id="overlayContent"></div>
@@ -250,7 +283,6 @@
             </div>
             <div id="cartSection" aria-live="polite"></div>
 
-            <!-- Modal PayPal button container (added so checkout modal can render PayPal) -->
             <div id="modal_paypal_button_container" style="margin-top:12px;"></div>
 
             <div id="paymentSelectWrapper" style="display:block;margin-top:12px;">
@@ -297,31 +329,24 @@
         </div>
     </div>
 
-    <div id="dynamicTopPicksByLifestyleContainer" style="display:none"></div>
-    <div id="homepage-sections"></div>
-
     <script>
         window.PLACEHOLDER_IMG = "{{ url_for('static', filename='images/placeholder.jpg') }}";
         window.DEFAULT_PRODUCT_IMG = "{{ url_for('static', filename='images/default.jpg') }}";
-        // Base URL for the external content management backend (headless CMS / content service).
-        // Note: content-related assets were removed from this page.
     </script>
 
-    <!-- load shared main.js first so shared functions (addToCart, showCheckoutModal, etc.) exist -->
+    <!-- Shared scripts -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-
-    <!-- men page script -->
+    <script src="{{ url_for('static', filename='js/search.js') }}"></script>
     <script src="{{ url_for('static', filename='js/men.js') }}"></script>
 
-    <!-- small supporting scripts -->
-    <!-- Leaflet JS for small map -->
+    <!-- Leaflet for map widgets -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-V0g0Q0rK6XH+E4kQGmY2zq7v7i5lY5H2c18b6X4m4xE=" crossorigin=""></script>
 
     <script src="{{ url_for('static', filename='js/announcements.js') }}"></script>
     <script src="{{ url_for('static', filename='js/footer.js') }}"></script>
 
-    <!-- PayPal SDK + helper (added to homepage so checkout modal can render PayPal) -->
+    <!-- PayPal SDK (homepage includes buttons for checkout modal) -->
     <script
         src="https://www.paypal.com/sdk/js?client-id=AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f&currency=USD"
         async></script>
@@ -330,8 +355,8 @@
     <script src="{{ url_for('static', filename='js/hero-audio.js') }}"></script>
     <script src="{{ url_for('static', filename='js/hero-enhance.js') }}"></script>
 
-    <!-- content-loader and content widgets removed per earlier request -->
-
+    <!-- Small inline protection: if price-comparison blueprint wasn't registered, clicking the link will still hit /price-comparison
+         and show Flask's 404. When the blueprint is registered the route will serve the comparison page. -->
 </body>
 
 </html>

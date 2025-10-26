@@ -2,12 +2,12 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WPerfumes Admin Dashboard</title>
-    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/admin.css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/css/admin.css" />
 </head>
 
 <body>
@@ -16,9 +16,9 @@
             <h3>Admin Login</h3>
             <form id="loginForm">
                 <label for="username">Username</label>
-                <input id="username" required>
+                <input id="username" required />
                 <label for="password">Password</label>
-                <input id="password" type="password" required>
+                <input id="password" type="password" required />
                 <div class="modal-actions">
                     <button type="submit" class="btn">Login</button>
                 </div>
@@ -29,19 +29,28 @@
             </form>
         </div>
     </div>
+
     <aside class="sidebar">
         <h1>WPerfumes Admin</h1>
         <nav>
-            <a href="#" id="tabBrands" class="active"><span class="material-icons">store</span> Brands</a>
-            <a href="#" id="tabProducts"><span class="material-icons">inventory</span> Products</a>
-            <a href="#" id="tabHomepage"><span class="material-icons">star</span> Homepage Products</a>
-            <a href="#" id="tabTopPicks"><span class="material-icons">emoji_events</span> Top Picks</a>
-            <a href="#" id="tabCoupons"><span class="material-icons">local_offer</span> Promotions</a>
-            <a href="#" id="tabOrders"><span class="material-icons">receipt_long</span> Customer Orders</a>
+            <!-- Use javascript:void(0) so clicking tabs doesn't modify URL fragments.
+                 admin.js wires click handlers by ID. -->
+            <a href="javascript:void(0)" id="tabBrands" class="active"><span class="material-icons">store</span>
+                Brands</a>
+            <a href="javascript:void(0)" id="tabProducts"><span class="material-icons">inventory</span> Products</a>
+            <a href="javascript:void(0)" id="tabHomepage"><span class="material-icons">star</span> Homepage Products</a>
+            <a href="javascript:void(0)" id="tabTopPicks"><span class="material-icons">emoji_events</span> Top Picks</a>
+            <a href="javascript:void(0)" id="tabCoupons"><span class="material-icons">local_offer</span> Promotions</a>
+            <a href="javascript:void(0)" id="tabOrders"><span class="material-icons">receipt_long</span> Customer
+                Orders</a>
+            <a href="javascript:void(0)" id="tabPriceComparison"><span class="material-icons">compare_arrows</span>
+                Price Comparison</a>
         </nav>
         <button class="logout" id="logoutBtn"><span class="material-icons">logout</span> Logout</button>
     </aside>
+
     <main class="main">
+        <!-- SITE SETTINGS -->
         <section class="card" id="siteSettingsCard" style="margin-bottom:32px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Site Settings</div>
@@ -60,8 +69,13 @@
                     <span id="discountSaveMsg" style="margin-left:12px; color:#218c6e; font-size:0.98em;"></span>
                 </div>
             </form>
+
+            <div style="margin-top:18px;border-top:1px solid #f0f0f0;padding-top:14px;">
+                <h4 style="margin:0 0 8px 0;font-weight:600;">Other Site Settings</h4>
+            </div>
         </section>
 
+        <!-- BRANDS CARD -->
         <section class="card" id="brandsCard">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Brands</div>
@@ -81,6 +95,8 @@
                 </table>
             </div>
         </section>
+
+        <!-- PRODUCTS CARD -->
         <section class="card" id="productsCard" style="display:none;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Products</div>
@@ -106,6 +122,8 @@
                 </table>
             </div>
         </section>
+
+        <!-- HOMEPAGE CARD -->
         <section class="card" id="homepageCard" style="display:none;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Homepage Products</div>
@@ -117,10 +135,10 @@
                     <thead>
                         <tr>
                             <th>Section</th>
-                            <th>Product</th>
+                            <th>Title</th>
                             <th>Brand</th>
                             <th>Price</th>
-                            <th>Sort Order</th>
+                            <th>Sort</th>
                             <th>Visible</th>
                             <th>Actions</th>
                         </tr>
@@ -129,6 +147,8 @@
                 </table>
             </div>
         </section>
+
+        <!-- TOP PICKS CARD -->
         <section class="card" id="topPicksCard" style="display:none;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Top Picks</div>
@@ -151,6 +171,8 @@
                 </table>
             </div>
         </section>
+
+        <!-- COUPONS CARD -->
         <section class="card" id="couponsCard" style="display:none;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Promotions</div>
@@ -165,8 +187,8 @@
                             <th>Description</th>
                             <th>Type</th>
                             <th>Value</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
+                            <th>Start</th>
+                            <th>End</th>
                             <th>Active</th>
                             <th>Actions</th>
                         </tr>
@@ -175,23 +197,24 @@
                 </table>
             </div>
         </section>
+
+        <!-- ORDERS CARD -->
         <section class="card" id="ordersCard" style="display:none;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <div style="font-size:1.13em;font-weight:500;">Customer Orders</div>
-                <button class="btn accent" id="addOrderBtn"><span class="material-icons">add</span> Add Order</button>
             </div>
             <div class="order-table-scroll">
                 <table id="ordersTable">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Customer</th>
                             <th>Email</th>
                             <th>Phone</th>
                             <th>Address</th>
                             <th>Product</th>
-                            <th>Quantity</th>
+                            <th>Qty</th>
                             <th>Status</th>
-                            <th>Payment Method</th>
+                            <th>Payment</th>
                             <th>Date</th>
                             <th>Actions</th>
                         </tr>
@@ -200,12 +223,200 @@
                 </table>
             </div>
         </section>
+
+        <!-- PRICE COMPARISON CARD (dedicated) -->
+        <section class="card" id="priceComparisonCard" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:1.13em;font-weight:500;">Price Comparison Settings</div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <button class="btn small" id="pcAddCompetitorBtn"><span class="material-icons">add</span> Add
+                        competitor</button>
+                    <button class="btn accent" id="savePcSettingsBtn">Save Price Comparison Settings</button>
+                    <button class="btn" id="pcResetBtn">Reset to Defaults</button>
+                    <span id="pcSaveMsg" style="margin-left:12px; color:#218c6e; font-size:0.98em;"></span>
+                </div>
+            </div>
+
+            <div style="margin-top:12px;">
+                <label for="pc_global_margin">Global margin (%) — applied when competitor has no per-entry
+                    margin</label>
+                <input id="pc_global_margin" type="number" min="0" max="100" step="0.1" style="width:120px;">
+            </div>
+
+            <div
+                style="overflow:auto; max-height:420px; border:1px solid #eee; border-radius:6px; padding:8px; margin-top:10px;">
+                <table id="pcCompetitorsTable" style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; width:220px">Competitor Brand</th>
+                            <th style="text-align:left; width:150px">Product ID (required)</th>
+                            <th style="text-align:left; width:140px">Our Price (auto)</th>
+                            <th style="text-align:left; width:160px">Competitor Price</th>
+                            <th style="width:70px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- rows added dynamically by static/js/admin.js -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="font-size:0.9em;color:#666;margin-top:8px;">
+                Tip: Add competitor rows with a specific Product ID to scope that competitor to a product.
+                Admin-entered "Our Price" and "Competitor Price" are used by the comparison page in preference to
+                scraped values.
+            </div>
+        </section>
+
     </main>
+
     <div id="modalBg" class="modal-bg" style="display:none;">
         <div class="modal" id="modalContent"></div>
     </div>
 
     <script src="/static/js/admin.js" defer></script>
+
+    <!-- New inline script to auto-populate "Our Price" from the product DB.
+         This preserves existing admin.js behavior (which still creates table rows and
+         provides save/reset flows). The script below wires the Product ID inputs
+         and fills the Our Price field automatically using the /api/product_by_id endpoint.
+         - It makes the "Our Price" input read-only and shows a 'auto' placeholder.
+         - It reacts to existing rows and any rows added later (MutationObserver).
+    -->
+    <script defer>
+        (function () {
+            // Helper to safely parse numbers and format to 2 decimals
+            function formatPriceValue(v) {
+                const n = Number(v);
+                if (!isFinite(n) || isNaN(n)) return '';
+                return n.toFixed(2);
+            }
+
+            // Fetch product by id and set our-price input
+            async function fetchAndSetOurPriceForRow(tr) {
+                if (!tr || !tr.querySelector) return;
+                const prodInput = tr.querySelector('.pc-product-id');
+                const ourInput = tr.querySelector('.pc-our-price');
+
+                if (!prodInput || !ourInput) return;
+
+                // Ensure ourInput is readonly and visually labelled as auto
+                try {
+                    ourInput.readOnly = true;
+                    ourInput.placeholder = ourInput.placeholder || 'auto';
+                    ourInput.title = 'Auto-filled from product database (read-only)';
+                    ourInput.classList.add('pc-our-price-auto');
+                } catch (e) {
+                    // ignore
+                }
+
+                const pid = (prodInput.value || '').trim();
+                if (!pid) {
+                    ourInput.value = '';
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`/api/product_by_id?product_id=${encodeURIComponent(pid)}`, { credentials: 'include' });
+                    if (!res.ok) {
+                        // If product not found, clear value but leave field read-only
+                        ourInput.value = '';
+                        return;
+                    }
+                    const js = await res.json();
+                    let price = null;
+                    if (js && (typeof js.price !== 'undefined')) {
+                        price = js.price;
+                    } else if (js && js.data && typeof js.data.price !== 'undefined') {
+                        price = js.data.price;
+                    }
+                    ourInput.value = formatPriceValue(price);
+                } catch (err) {
+                    console.warn('Failed to fetch product price for', pid, err);
+                    ourInput.value = '';
+                }
+            }
+
+            // Wire up event handlers for a single table row
+            function wireRow(tr) {
+                if (!tr || !tr.querySelector) return;
+                const prodInput = tr.querySelector('.pc-product-id');
+                const ourInput = tr.querySelector('.pc-our-price');
+                if (!prodInput || !ourInput) return;
+
+                // If already wired skip (avoid duplicate listeners)
+                if (tr.dataset._pc_wired === '1') {
+                    // ensure our-price is readonly and attempt initial fetch
+                    fetchAndSetOurPriceForRow(tr).catch(() => { });
+                    return;
+                }
+                tr.dataset._pc_wired = '1';
+
+                // Make our-price readonly/display-only
+                try {
+                    ourInput.readOnly = true;
+                    ourInput.placeholder = ourInput.placeholder || 'auto';
+                    ourInput.title = 'Auto-filled from product database (read-only)';
+                    ourInput.classList.add('pc-our-price-auto');
+                } catch (e) { /* ignore */ }
+
+                // On change/blur of product id fetch price
+                const handler = () => { fetchAndSetOurPriceForRow(tr).catch(() => { }); };
+                prodInput.addEventListener('change', handler);
+                prodInput.addEventListener('blur', handler);
+
+                // If the row already has a product id set (rendered from saved settings), fetch immediately
+                if (prodInput.value && prodInput.value.trim()) {
+                    fetchAndSetOurPriceForRow(tr).catch(() => { });
+                }
+            }
+
+            // Wire existing rows and observe for new ones
+            function init() {
+                const tbody = document.querySelector('#pcCompetitorsTable tbody');
+                if (!tbody) return;
+
+                // Wire any existing rows
+                Array.from(tbody.querySelectorAll('tr')).forEach(wireRow);
+
+                // Observe additions to the tbody (admin.js will insert new rows)
+                const mo = new MutationObserver((mutations) => {
+                    for (const m of mutations) {
+                        for (const node of m.addedNodes) {
+                            if (!node) continue;
+                            if (node.nodeType === 1 && node.matches && node.matches('tr')) {
+                                wireRow(node);
+                            } else if (node.querySelectorAll) {
+                                Array.from(node.querySelectorAll('tr')).forEach(wireRow);
+                            }
+                        }
+                    }
+                });
+                mo.observe(tbody, { childList: true, subtree: true });
+
+                // In case admin.js re-renders table body wholesale, also listen for the save/load button events
+                // and re-wire after a short delay (defensive)
+                const originalLoad = window.loadPriceComparisonSettings_v3;
+                if (typeof originalLoad === 'function') {
+                    window.loadPriceComparisonSettings_v3 = async function () {
+                        const res = await originalLoad();
+                        // small delay to let admin.js render rows
+                        setTimeout(() => {
+                            Array.from(document.querySelectorAll('#pcCompetitorsTable tbody tr')).forEach(wireRow);
+                        }, 80);
+                        return res;
+                    };
+                }
+            }
+
+            // Run init when DOM ready
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                setTimeout(init, 0);
+            } else {
+                document.addEventListener('DOMContentLoaded', init);
+            }
+        })();
+    </script>
 
     <div style="display:none">
         <div class="user" id="userInfo">

@@ -47,11 +47,15 @@ body {
     margin-right: 20px;
 }
 
+/* NAV TABS: allow extra tab(s) and wrap gracefully */
 .nav-tabs {
     list-style: none;
     padding: 0;
     margin: 0;
     display: flex;
+    flex-wrap: wrap;
+    /* ensure nav items wrap if space is constrained */
+    gap: 6px;
 }
 
 .nav-tabs li a {
@@ -61,6 +65,8 @@ body {
     display: block;
     border-radius: 4px;
     transition: background-color 0.3s, color 0.3s;
+    white-space: nowrap;
+    /* prevent label lines from wrapping */
 }
 
 .nav-tabs li a:hover {
@@ -403,14 +409,14 @@ main.content-container {
     background-color: #ffffff;
 }
 
-.slider-container {
+slider-container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 10px;
     position: relative;
 }
 
-.slider-wrapper {
+slider-wrapper {
     overflow-x: scroll;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -419,7 +425,7 @@ main.content-container {
     padding-bottom: 10px;
 }
 
-.slider-wrapper::-webkit-scrollbar {
+slider-wrapper::-webkit-scrollbar {
     display: none;
 }
 
@@ -429,8 +435,8 @@ main.content-container {
     animation: slide-scroll var(--animation-speed) linear infinite;
 }
 
-.slider-wrapper:hover .slider-track,
-.slider-wrapper:focus .slider-track {
+slider-wrapper:hover .slider-track,
+slider-wrapper:focus .slider-track {
     animation-play-state: paused;
 }
 
@@ -591,7 +597,7 @@ main.content-container {
     text-decoration: none;
 }
 
-.cart-count-badge {
+cart-count-badge {
     background-color: var(--sale-red);
     color: var(--primary-white);
     border-radius: 50%;
@@ -606,7 +612,7 @@ main.content-container {
     position: relative;
 }
 
-.login-btn {
+login-btn {
     background-color: var(--dark-text);
     color: var(--primary-white);
     border-color: var(--dark-text);
@@ -622,7 +628,7 @@ main.content-container {
     font-size: 14px;
 }
 
-.login-btn svg {
+login-btn svg {
     fill: var(--primary-white);
     stroke: var(--primary-white);
 }

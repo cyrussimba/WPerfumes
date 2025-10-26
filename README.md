@@ -6,7 +6,47 @@ AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f
 ENfQY0jGTzefs-TaMLsfQa20ILEsxmzoNl8mYGK_fMbpDomqZwuSKKaLJo6teHA4HZpJ6qAvXD582LTZ
 
 
-This is an e-commerce backend built with Flask, SQLAlchemy, and PostgreSQL (compatible with SQLite for local development). It provides RESTful API endpoints for managing brands, products, homepage sections, orders, coupons, and more. The project is structured for easy deployment to [Render](https://render.com/) and supports email notifications for orders.
+#Push changes to github
+## 1 https://github.com/cyrussimba/WPerfumes
+
+cd /Users/Makori/Desktop/WPerfumes
+
+# 2 ensure we're in a git repo
+if [ ! -d .git ]; then
+  echo "No .git directory found. This folder is not a git repository."
+  exit 1
+fi
+
+# 3 make sure origin points to the correct repo (add origin if missing)
+if git remote | grep -q '^origin$'; then
+  git remote set-url origin https://github.com/cyrussimba/WPerfumes.git
+else
+  git remote add origin https://github.com/cyrussimba/WPerfumes.git
+fi
+
+# 4 get current branch name
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "Current branch: $BRANCH"
+
+# 5 fetch remote and rebase local branch on remote changes (keeps history linear)
+git fetch origin
+git pull --rebase --autostash origin "$BRANCH"
+
+# 6 stage all changes (new, modified, deleted)
+git add -A
+
+# 7 commit only if there are staged changes; use an exact timestamped message
+if git diff --cached --quiet; then
+  echo "No changes to commit."
+else
+  git commit -m "Update: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+fi
+
+# 8 push to GitHub and set upstream if this is the first time for this branch
+git push --set-upstream origin "$BRANCH"
+
+
+his is an e-commerce backend built with Flask, SQLAlchemy, and PostgreSQL (compatible with SQLite for local development). It provides RESTful API endpoints for managing brands, products, homepage sections, orders, coupons, and more. The project is structured for easy deployment to [Render](https://render.com/) and supports email notifications for orders.
 
 ---
 

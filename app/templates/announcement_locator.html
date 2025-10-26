@@ -10,17 +10,10 @@
             </ul>
         </div>
 
-        <!-- Announcement right-side: store locator button + tiny interactive map -->
+        <!-- Right-side: keep a simple Store Locator placeholder (matches index.html behavior).
+             Removed the small map / extra empty card so the announcement bar stays compact. -->
         <div class="city-selector" aria-hidden="false">
-            <!-- Plain button (no navigation) — opens modal locator -->
-            <button id="locatorOpenBtn" type="button" class="shop-locator" aria-haspopup="dialog"
-                aria-controls="locatorModal">
-                Store Locator
-            </button>
-
-            <!-- Small map used as teaser (click opens full locator modal) -->
-            <div id="locatorSmallMap" class="locator-map" role="img" aria-label="Delivery providers preview map"
-                tabindex="0"></div>
+            <a class="shop-locator" href="{{ url_for('main.brand') }}">Store Locator</a>
         </div>
     </header>
 </div>

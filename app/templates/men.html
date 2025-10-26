@@ -16,6 +16,21 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        /* Reduce the search width here too so Men page layout matches homepage */
+        .navbar-center .search-container input#siteSearchInput {
+            width: 260px;
+            max-width: 60vw;
+        }
+
+        @media (max-width: 640px) {
+            .navbar-center .search-container input#siteSearchInput {
+                width: 48vw;
+                max-width: 220px;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -44,6 +59,7 @@
                 <li><a href="{{ url_for('main.men') }}">Men</a></li>
                 <li><a href="{{ url_for('main.women') }}">Women</a></li>
                 <li><a href="{{ url_for('main.beauty') }}">Beauty</a></li>
+                <li><a href="{{ url_for('price_cmp_bp.price_comparison_page') }}">Compare Prices</a></li>
                 <li><a href="{{ url_for('main.history') }}">History</a></li>
                 <li><a href="{{ url_for('main.about') }}">About Us</a></li>
             </ul>

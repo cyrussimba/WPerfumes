@@ -171,9 +171,16 @@ footer {
     }
 }
 
+/* NAVBAR
+   Adjust spacing and sizing so the whole nav fits on one horizontal line:
+   - reduce paddings and gaps
+   - prevent nav-tabs from wrapping
+   - make the center search smaller and fixed
+*/
 .navbar {
     background-color: var(--light-brown);
-    padding: 6px 10px;
+    padding: 6px 8px;
+    /* slightly narrower */
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -182,31 +189,56 @@ footer {
     margin-bottom: 0;
     width: 100%;
     max-width: var(--max-section-width);
+    gap: 8px;
 }
 
 .brand-logo {
-    font-size: 24px;
+    font-size: 20px;
+    /* slightly smaller */
     font-weight: bold;
     color: var(--dark-text);
     text-decoration: none;
     letter-spacing: 1px;
-    margin-right: 20px;
+    margin-right: 12px;
+    /* reduced spacing to save room */
 }
 
+/* NAV TABS: allow items to stay on a single line by reducing gap and preventing wrap */
 .nav-tabs {
     list-style: none;
     padding: 0;
     margin: 0;
     display: flex;
+    flex-wrap: nowrap;
+    /* prevent wrapping */
+    gap: 4px;
+    /* reduced gap between items */
+    align-items: center;
+    overflow: hidden;
+    /* hide overflow if items are too many */
+    max-width: calc(100vw - 520px);
+    /* soft limit to avoid pushing center/right off-screen */
+}
+
+.nav-tabs li {
+    display: inline-block;
+    max-width: 140px;
+    /* safeguard long labels */
 }
 
 .nav-tabs li a {
     text-decoration: none;
     color: var(--dark-text);
-    padding: 7px 14px;
+    padding: 6px 8px;
+    /* reduced padding */
     display: block;
     border-radius: 4px;
     transition: background-color 0.3s, color 0.3s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    /* slightly smaller font */
 }
 
 .nav-tabs li a:hover {
@@ -214,84 +246,62 @@ footer {
     color: var(--dark-accent);
 }
 
+/* Center search -- reduce size and fix width to keep layout stable.
+   The inline style in index.html sets a larger width; we use !important to ensure this stylesheet wins.
+*/
 .navbar-center {
-    flex-grow: 1;
-    max-width: 350px;
-    margin: 0 10px;
+    flex: 0 0 200px;
+    /* fixed width to avoid pushing right-side controls */
+    margin: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
+    max-width: 260px;
 }
 
-.search-container input[type="text"] {
+.search-container {
     width: 100%;
-    padding: 6px 14px;
+}
+
+.search-container input[type="text"],
+.navbar-center .search-container input#siteSearchInput {
+    width: 200px !important;
+    /* force smaller width */
+    max-width: 45vw !important;
+    padding: 6px 10px;
     border: 1px solid var(--light-silver);
     background-color: var(--light-silver);
     border-radius: 20px;
     outline: none;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--dark-text);
 }
 
+/* Navbar right: keep compact */
 .navbar-right {
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
 .navbar-right a {
     text-decoration: none;
     color: var(--dark-text);
-    padding: 6px 10px;
-    margin-left: 10px;
+    padding: 6px 8px;
+    /* smaller padding */
+    margin-left: 6px;
     border: 1px solid var(--dark-text);
     border-radius: 4px;
     transition: background-color 0.3s, color 0.3s;
-    font-size: 14px;
+    font-size: 13px;
     position: relative;
-}
-
-.navbar-right .login-btn {
-    background-color: var(--dark-text);
-    color: var(--white-bg);
-    border-color: var(--dark-text);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.navbar-right .login-btn:hover,
-.navbar-right .cart-btn:hover {
-    background-color: var(--light-green);
-    color: var(--dark-accent);
-    border-color: var(--light-green);
-}
-
-.navbar-right .cart-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.cart-count-badge {
-    position: absolute;
-    top: -7px;
-    right: -7px;
-    background: var(--cart-badge-color);
-    color: var(--cart-badge-text);
-    border-radius: 50%;
-    font-size: 11px;
-    min-width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    z-index: 2;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
 /* Login/Sign-up Hover Menu Styles */
 .login-menu-container {
     position: relative;
-    margin-left: 10px;
+    margin-left: 6px;
 }
 
 .login-submenu {
@@ -321,9 +331,9 @@ footer {
 .login-submenu .signup-btn {
     text-decoration: none;
     color: var(--dark-text);
-    padding: 6px 15px;
+    padding: 6px 10px;
     display: block;
-    font-size: 14px;
+    font-size: 13px;
     border: none;
     margin-left: 0;
     transition: background-color 0.2s;
@@ -515,6 +525,7 @@ footer {
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    transition: background 0.2s;
 }
 
 #checkoutModalContent .qty-control-btn:active {
@@ -1291,6 +1302,28 @@ hr.section-divider {
     }
 }
 
+/* Smaller screens: reduce search width further and allow nav items to shrink */
+@media (max-width: 900px) {
+    .navbar-center {
+        flex: 0 0 160px;
+        max-width: 180px;
+    }
+
+    .search-container input#siteSearchInput {
+        width: 160px !important;
+        max-width: 40vw !important;
+    }
+
+    .nav-tabs li a {
+        padding: 6px 6px;
+        font-size: 12px;
+    }
+
+    .nav-tabs {
+        max-width: calc(100vw - 360px);
+    }
+}
+
 @media (max-width: 768px) {
     .product-card {
         width: 120px;
@@ -1312,8 +1345,8 @@ hr.section-divider {
     }
 
     .nav-tabs li a {
-        padding: 7px 12px;
-        font-size: 0.9rem;
+        padding: 6px 6px;
+        font-size: 12px;
     }
 
     #testimonials,
@@ -1335,10 +1368,38 @@ hr.section-divider {
     }
 }
 
+@media (max-width: 480px) {
+    .navbar {
+        padding: 6px 6px;
+    }
+
+    .brand-logo {
+        font-size: 18px;
+    }
+
+    .navbar-center {
+        flex: 0 0 120px;
+    }
+
+    .search-container input#siteSearchInput {
+        width: 120px !important;
+        max-width: 36vw !important;
+    }
+
+    .nav-tabs li a {
+        padding: 6px 6px;
+        font-size: 11px;
+    }
+
+    .nav-tabs {
+        max-width: calc(100vw - 260px);
+    }
+}
+
 @media (max-width: 320px) {
     .nav-tabs li a {
-        padding: 6px 8px;
-        font-size: 0.85em;
+        padding: 6px 6px;
+        font-size: 10px;
     }
 
     #hero h2 {

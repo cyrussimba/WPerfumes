@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Price Comparison — WPerfumes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/price_comparison.css') }}">
+</head>
+
+<body>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <a class="brand-logo" href="{{ url_for('main.index') }}">WPerfumes</a>
+            <ul class="nav-tabs" role="menubar" aria-label="Site Menu">
+                <li><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li><a href="{{ url_for('main.men') }}">Men</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container price-compare-main" role="main">
+        <h1>Compare prices for our perfumes</h1>
+        <p class="lead">Admin-entered competitor rows drive this comparison. Add competitor rows in Admin → Price
+            Comparison. Each competitor entry must include a Product ID (e.g. PRD001) that uniquely identifies the
+            product in our DB.</p>
+
+        <div class="pc-controls">
+            <label for="pcProductSelect">Our product</label>
+            <select id="pcProductSelect" aria-label="Select product">
+                <option value="">Loading products…</option>
+            </select>
+
+            <button id="pcCompareBtn" class="btn-primary">Compare Prices</button>
+        </div>
+
+        <div id="pcStatus" class="pc-status" aria-live="polite"></div>
+
+        <div id="pcResult" class="pc-result" style="display:none;">
+            <h2 id="pcProductTitle"></h2>
+            <div class="our-price-row">
+                <div class="our-price-label">Our price</div>
+                <div id="pcOurPrice" class="our-price-value"></div>
+                <div id="pcBadge" class="pc-badge" style="display:none">Cheapest</div>
+            </div>
+
+            <table id="pcTable" class="pc-table" role="table" aria-label="Comparison results">
+                <thead>
+                    <tr>
+                        <th>Competitor Brand</th>
+                        <th>Product ID</th>
+                        <th>Our Price</th>
+                        <th>Competitor Price</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        // optional: server can inject a preset product id
+        window.PC_PRESET_PRODUCT_ID = "{{ product_id or '' }}";
+    </script>
+    <script src="{{ url_for('static', filename='js/price_comparison.js') }}"></script>
+</body>
+
+</html>
