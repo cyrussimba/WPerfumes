@@ -41,7 +41,8 @@
     --cart-modal-content: #fff;
 
     /* Mobile/perf friendly overrides (small increments won't affect big-screen unless explicitly overridden below) */
-    --tap-size: 44px; /* recommended min touch target */
+    --tap-size: 44px;
+    /* recommended min touch target */
 }
 
 /* =========================================================
@@ -137,27 +138,39 @@ footer {
     padding-left: 4px;
 }
 
-.announcement-item:nth-child(1) { animation-delay: 0s; }
-.announcement-item:nth-child(2) { animation-delay: 3s; }
-.announcement-item:nth-child(3) { animation-delay: 6s; }
+.announcement-item:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.announcement-item:nth-child(2) {
+    animation-delay: 3s;
+}
+
+.announcement-item:nth-child(3) {
+    animation-delay: 6s;
+}
 
 @keyframes vertical-marquee {
     0% {
         transform: translateY(100%);
         opacity: 0;
     }
+
     10% {
         transform: translateY(0);
         opacity: 1;
     }
+
     30% {
         transform: translateY(0);
         opacity: 1;
     }
+
     40% {
         transform: translateY(-100%);
         opacity: 0;
     }
+
     100% {
         transform: translateY(-100%);
         opacity: 0;
@@ -180,8 +193,16 @@ footer {
 }
 
 @keyframes blinking {
-    0%, 49% { opacity: 1; }
-    50%, 100% { opacity: 0.35; }
+
+    0%,
+    49% {
+        opacity: 1;
+    }
+
+    50%,
+    100% {
+        opacity: 0.35;
+    }
 }
 
 /* =========================================================
@@ -551,6 +572,7 @@ footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
 }
 
 .cart-modal-close {
@@ -715,9 +737,17 @@ footer {
 }
 
 @keyframes heroGradientMove {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 #hero h2 {
@@ -733,7 +763,10 @@ footer {
 }
 
 @keyframes heroHeadingIn {
-    to { opacity: 1; transform: translateY(0); }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 #hero p {
@@ -745,7 +778,11 @@ footer {
     margin: 0 auto;
 }
 
-@keyframes heroSubFade { to { opacity: 1; } }
+@keyframes heroSubFade {
+    to {
+        opacity: 1;
+    }
+}
 
 .hero-cta-btn {
     display: inline-block;
@@ -784,8 +821,14 @@ footer {
 }
 
 @keyframes sparkleMove {
-    from { transform: scale(0.2) translateY(0); }
-    to { transform: scale(1.3) translateY(-16px); opacity: 0; }
+    from {
+        transform: scale(0.2) translateY(0);
+    }
+
+    to {
+        transform: scale(1.3) translateY(-16px);
+        opacity: 0;
+    }
 }
 
 .hero-badge {
@@ -802,8 +845,15 @@ footer {
 }
 
 @keyframes badgePop {
-    from { opacity: 0; transform: scale(0.7); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.7);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .hero-main-img {
@@ -815,8 +865,15 @@ footer {
 }
 
 @keyframes floatImg {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-18px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-18px);
+    }
 }
 
 #hero-audio-player {
@@ -834,7 +891,9 @@ footer {
     min-width: 74px;
 }
 
-#hero-audio-player audio { display: none; }
+#hero-audio-player audio {
+    display: none;
+}
 
 #heroAudioMuteBtn {
     background: none;
@@ -847,7 +906,9 @@ footer {
     transition: color 0.2s;
 }
 
-#heroAudioMuteBtn:hover #heroAudioMuteIcon { color: #e67e22; }
+#heroAudioMuteBtn:hover #heroAudioMuteIcon {
+    color: #e67e22;
+}
 
 #hero {
     overflow: visible;
@@ -951,9 +1012,20 @@ footer {
 }
 
 @keyframes underline-slide {
-    0% { width: 0; opacity: 0.5; }
-    70% { width: 100%; opacity: 1; }
-    100% { width: 100%; opacity: 1; }
+    0% {
+        width: 0;
+        opacity: 0.5;
+    }
+
+    70% {
+        width: 100%;
+        opacity: 1;
+    }
+
+    100% {
+        width: 100%;
+        opacity: 1;
+    }
 }
 
 .section-heading-row h3:not(.signature) {
@@ -1234,6 +1306,7 @@ hr.section-divider {
    RESPONSIVE OVERRIDES (original file also included responsive rules; keep them)
    ========================================================= */
 @media (max-width: 1024px) {
+
     .card-section-wrapper,
     #testimonials,
     #announcement,
@@ -1364,6 +1437,7 @@ hr.section-divider {
 
 /* Media query to hide non-signature sections on mobile devices */
 @media (max-width: 768px) {
+
     /* These IDs correspond to the keys in the SECTIONS object in main.js */
     #men,
     #women,
@@ -1384,6 +1458,7 @@ hr.section-divider {
         -webkit-overflow-scrolling: touch;
         gap: 8px;
     }
+
     .nav-tabs li a {
         white-space: nowrap;
     }
@@ -1391,7 +1466,10 @@ hr.section-divider {
 
 /* Improve touch targets in navbar-right and nav links */
 @media (max-width: 900px) {
-    .navbar-right a, .navbar-right .login-btn, .nav-tabs li a {
+
+    .navbar-right a,
+    .navbar-right .login-btn,
+    .nav-tabs li a {
         padding: 10px 12px;
         min-height: var(--tap-size);
         display: inline-flex;
@@ -1400,13 +1478,17 @@ hr.section-divider {
 }
 
 /* Reduce hero animation pressure on smaller screens and for reduced motion */
-@media (max-width: 900px), (prefers-reduced-motion: reduce) {
+@media (max-width: 900px),
+(prefers-reduced-motion: reduce) {
     #hero {
         animation: none !important;
     }
-    .hero-main-img, .hero-sparkle {
+
+    .hero-main-img,
+    .hero-sparkle {
         animation: none !important;
     }
+
     .hero-cta-btn {
         transform: none !important;
         box-shadow: none !important;
@@ -1419,55 +1501,142 @@ hr.section-divider {
         width: calc(33.333% - 12px);
         height: auto;
     }
-    .card-image-wrapper { height: 160px; }
+
+    .card-image-wrapper {
+        height: 160px;
+    }
 }
+
 @media (max-width: 768px) {
     .product-card {
         width: calc(50% - 10px);
         height: auto;
     }
-    .card-image-wrapper { height: 160px; }
+
+    .card-image-wrapper {
+        height: 160px;
+    }
 }
+
 @media (max-width: 420px) {
     .product-card {
         width: 100%;
     }
-    .card-image-wrapper { height: 140px; }
+
+    .card-image-wrapper {
+        height: 140px;
+    }
 }
 
 /* Reduce box-shadow and hover transforms on mobile to avoid repaint */
 @media (max-width: 768px) {
-    .product-card:hover { transform: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .product-card:hover {
+        transform: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
 }
 
 /* Announcement scroller: disable automatic animation if user prefers reduced motion or on small devices */
-@media (prefers-reduced-motion: reduce), (max-width: 420px) {
-    .announcement-item { animation: none !important; position: relative; opacity: 1 !important; transform: none !important; }
-    .announcement-scroller { overflow: visible; }
+@media (prefers-reduced-motion: reduce),
+(max-width: 420px) {
+    .announcement-item {
+        animation: none !important;
+        position: relative;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .announcement-scroller {
+        overflow: visible;
+    }
 }
 
 /* Smaller announcement inner padding on mobile */
 @media (max-width: 768px) {
-    .announcement-scroller { padding: 0 12px; }
+    .announcement-scroller {
+        padding: 0 12px;
+    }
 }
 
 /* Cart modal: make footer buttons larger on touch devices */
 @media (max-width: 640px) {
-    .cart-modal-content .form-buttons button, .cart-modal-footer a, .cart-modal-footer button {
+
+    .cart-modal-content .form-buttons button,
+    .cart-modal-footer a,
+    .cart-modal-footer button {
         padding: 12px 14px;
         font-size: 16px;
     }
-    .cart-modal-content { padding: 16px; }
+
+    .cart-modal-content {
+        padding: 16px;
+    }
 }
 
 /* Make image wrappers enforce aspect ratio and help layout shift avoidance */
-.product-image, #productDetailOverlay img {
+.product-image,
+#productDetailOverlay img {
     aspect-ratio: 1 / 1;
     object-fit: contain;
 }
 
 /* Ensure the hero audio player doesn't obstruct small screens: smaller padding & reposition */
 @media (max-width: 640px) {
-    #hero-audio-player { top: 8px; left: 8px; padding: 6px 8px; min-width: 60px; }
-    #heroAudioMuteBtn { font-size: 1.05em; }
+    #hero-audio-player {
+        top: 8px;
+        left: 8px;
+        padding: 6px 8px;
+        min-width: 60px;
+    }
+
+    #heroAudioMuteBtn {
+        font-size: 1.05em;
+    }
+}
+
+/* ------------------------------------------------------------------
+   Mobile: show 3 signature product cards in the visible viewport
+   - Keep the #signature .card-container as max-content (so scrolling/animation
+     has content to move). But make each .product-card sized to 1/3 of the
+     viewport (minus container padding/gaps) so at least 3 cards are visible.
+   - Adjust image wrapper & min-heights so layout stays stable and avoids CLS.
+   ------------------------------------------------------------------ */
+@media (max-width: 768px) {
+
+    /* Slightly tighten gaps to help 3 cards fit comfortably */
+    #signature .card-container {
+        gap: 10px;
+        /* keep max-content so the current JS animation (translateX based on scrollWidth)
+           still finds scroll distance > 0 and animates */
+        width: max-content;
+    }
+
+    /* Make each card take roughly 1/3 of the viewport (account for container padding
+       and inter-card gaps). This ensures at least 3 cards are visible at once. */
+    #signature .product-card {
+        /* subtract: container horizontal padding (approx 40px) + two gaps between 3 items */
+        flex: 0 0 calc((100vw - 40px - (2 * var(--card-gap, 15px))) / 3);
+        width: auto;
+        /* let flex-basis control the width */
+        min-height: 180px;
+        /* maintain reasonable card height */
+        border-radius: 10px;
+    }
+
+    /* Make product image area slightly shorter on mobile so content fits visually */
+    #signature .card-image-wrapper {
+        height: 120px;
+    }
+
+    /* Ensure images keep aspect ratio and occupy available height */
+    .product-image {
+        height: 100%;
+        width: auto;
+        object-fit: contain;
+    }
+
+    /* Slight tweak to card details spacing to avoid overflow */
+    .card-details {
+        padding: 6px 8px;
+    }
 }

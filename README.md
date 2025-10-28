@@ -1,5 +1,11 @@
 # WPerfumes E-Commerce Flask Application
 
+## Commit to GitHub
+git add -A
+git commit -m "Hide admin tab: render Admin link only for admin users"
+git push origin master
+
+
 ##  chmod +x ./run-local.sh
 ## ./run-local.sh
 AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f
