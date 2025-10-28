@@ -1,11 +1,15 @@
 /**
  * static/js/announcements.js
  *
- * Robust announcements scroller (fixed destroy/unbind handlers bug).
- * - When adding focus/blur/mouse handlers we store references so we can remove them on destroy.
- * - Minor defensive checks added.
+ * Robust announcements scroller that now:
+ * - Uses CSS per-item animation (vertical-marquee) for the visual movement.
+ * - JS scroller will NOT fight CSS animation. If CSS per-item animation is active the JS
+ *   scroller will avoid applying transforms and will only provide pause/resume controls
+ *   (for focus/hover/visibility/mutation lifecycle).
+ *
+ * This makes individual items animate on mobile just like on large screens,
+ * while preserving the robust lifecycle (pause on focus/visibility) and dynamic updates.
  */
-
 (function () {
     'use strict';
 
@@ -31,7 +35,11 @@
         this.mutationObserver = null;
         this.intersectionObserver = null;
 
-        // Handlers we will attach (so we can remove them later)
+        // If CSS per-item animation (vertical-marquee) is active we switch to "cssMode"
+        // where JS avoids translating the whole list and only controls pause/resume.
+        this.cssMode = false;
+
+        // Keep references to handlers so we can unbind
         this._mouseenterHandler = null;
         this._mouseleaveHandler = null;
         this._onResize = null;
@@ -40,33 +48,52 @@
         this.init();
     }
 
+    Scroller.prototype._detectCssAnimation = function () {
+        // If there are no items, default to non-css mode
+        if (!this.items || !this.items.length) return false;
+        try {
+            const cs = window.getComputedStyle(this.items[0]);
+            const animName = (cs && (cs.getPropertyValue('animation-name') || cs.animationName)) || 'none';
+            const animDur = (cs && (cs.getPropertyValue('animation-duration') || cs.animationDuration)) || '0s';
+            // If animation-name isn't 'none' and duration > 0, assume CSS per-item animation is active
+            return animName !== 'none' && !animDur.startsWith('0');
+        } catch (e) {
+            return false;
+        }
+    };
+
     Scroller.prototype.init = function () {
         this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
 
-        if (!this.listEl || this.items.length < 2) {
+        if (!this.listEl || this.items.length < 1) {
             this.listEl.style.transition = '';
             this.listEl.style.transform = '';
             return;
         }
 
+        // Decide if CSS per-item animation (vertical-marquee) is active
+        this.cssMode = this._detectCssAnimation();
+
+        // Set JS-list transition (harmless when not used)
         this.listEl.style.transition = this.listEl.style.transition || 'transform 0.45s cubic-bezier(.2,.9,.2,1)';
 
+        // Compute initial item height for JS-based movement (if not using CSS per-item)
         this.computeItemHeight();
 
+        // Delay start slightly to allow layout & CSS animation to stabilize
         setTimeout(() => {
             this.start();
         }, 120);
 
-        // Store handlers to allow proper removal later
+        // Attach event handlers (we use them for both cssMode and js-mode)
         this._mouseenterHandler = () => this.pause('hover');
         this._mouseleaveHandler = () => this.resume('hover');
         this.listEl.addEventListener('mouseenter', this._mouseenterHandler);
         this.listEl.addEventListener('mouseleave', this._mouseleaveHandler);
 
-        // Keyboard accessibility: attach named handlers and save them on elements
+        // Keyboard accessibility handlers on each item (pause when focused)
         this.items.forEach((it) => {
             if (!it.hasAttribute('tabindex')) it.setAttribute('tabindex', '0');
-            // create handlers and attach to the element so we can remove them later
             const focusHandler = () => this.pause('focus');
             const blurHandler = () => this.resume('focus');
             it.__announcement_focus_handler = focusHandler;
@@ -75,16 +102,19 @@
             it.addEventListener('blur', blurHandler);
         });
 
+        // Resize handling
         this._onResize = debounce(() => {
             this.computeItemHeight();
-            this.applyTransform();
+            // For js-mode apply transform to keep position correct
+            if (!this.cssMode) this.applyTransform();
         }, 120);
         window.addEventListener('resize', this._onResize);
 
+        // Support dynamic changes: observe childList and rebind handlers when items change
         if ('MutationObserver' in window) {
             this.mutationObserver = new MutationObserver((mutations) => {
                 setTimeout(() => {
-                    // Before reattaching, remove any previously attached per-item handlers
+                    // remove previous per-item handlers
                     this.items.forEach(it => {
                         try {
                             if (it.__announcement_focus_handler) it.removeEventListener('focus', it.__announcement_focus_handler);
@@ -94,8 +124,13 @@
                         delete it.__announcement_blur_handler;
                     });
 
+                    // refresh items list
                     this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
-                    // reattach new handlers
+
+                    // re-detect cssMode (in case CSS changed or new items inserted)
+                    this.cssMode = this._detectCssAnimation();
+
+                    // attach new handlers
                     this.items.forEach((it) => {
                         if (!it.hasAttribute('tabindex')) it.setAttribute('tabindex', '0');
                         const focusHandler = () => this.pause('focus');
@@ -108,13 +143,14 @@
 
                     this.computeItemHeight();
                     if (this.currentIndex >= this.items.length) this.currentIndex = 0;
-                    this.applyTransform();
+                    if (!this.cssMode) this.applyTransform();
                     if (!this.paused) this.restartInterval();
                 }, 80);
             });
             this.mutationObserver.observe(this.listEl, { childList: true, subtree: false });
         }
 
+        // IntersectionObserver to pause when offscreen
         if ('IntersectionObserver' in window) {
             this.intersectionObserver = new IntersectionObserver(entries => {
                 entries.forEach(ent => {
@@ -126,6 +162,7 @@
             this.intersectionObserver.observe(this.listEl);
         }
 
+        // Page visibility handling
         this._onVisibilityChange = () => {
             if (document.visibilityState === 'hidden') this.pause('hidden');
             else this.resume('hidden');
@@ -138,13 +175,24 @@
             const r = this.items[0].getBoundingClientRect();
             this.itemHeight = Math.max(1, Math.round(r.height));
         } else {
-            this.itemHeight = 22;
+            this.itemHeight = 30;
         }
     };
 
     Scroller.prototype.start = function () {
         if (this.intervalId) return;
-        if (this.items.length < 2) return;
+        if (!this.items || this.items.length < 2) return;
+        // If user prefers reduced motion, do not start any auto rotation.
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        // If CSS per-item animation is active, we don't need to translate the list;
+        // CSS handles the visual changes. JS will instead provide pause/resume only.
+        if (this.cssMode) {
+            // nothing to start (CSS runs automatically)
+            return;
+        }
+
+        // JS-driven auto-rotation for the whole list (fallback when CSS animation is not used)
         this.intervalId = setInterval(() => this.showNext(), this.delay);
     };
 
@@ -162,11 +210,30 @@
 
     Scroller.prototype.pause = function (reason = '') {
         this.paused = true;
+        // Stop JS interval if running
         this.stop();
+
+        // If CSS per-item animation is active, pause CSS animations by toggling animation-play-state
+        if (this.cssMode && this.items && this.items.length) {
+            this.items.forEach(it => {
+                try { it.style.animationPlayState = 'paused'; } catch (e) { /* ignore */ }
+            });
+        } else {
+            // For JS mode, nothing else to do (we already stopped interval). But for accessibility
+            // we may want to visually freeze the list in place: keep current transform.
+        }
     };
 
     Scroller.prototype.resume = function (reason = '') {
         this.paused = false;
+
+        // Resume CSS animations if in cssMode
+        if (this.cssMode && this.items && this.items.length) {
+            this.items.forEach(it => {
+                try { it.style.animationPlayState = 'running'; } catch (e) { /* ignore */ }
+            });
+        }
+
         if (this.visible) this.restartInterval();
     };
 
@@ -202,6 +269,11 @@
                 delete it.__announcement_focus_handler;
                 delete it.__announcement_blur_handler;
             });
+
+            // clear any inline animationPlayState set by pause
+            if (this.items && this.items.length) {
+                this.items.forEach(it => { try { it.style.animationPlayState = ''; } catch (e) { /* ignore */ } });
+            }
         } catch (e) {
             // ignore removal errors
         }

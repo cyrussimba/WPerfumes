@@ -1,6 +1,8 @@
-/* Replace static/css/announcements.css with this version.
-   - Keeps Store Locator and adds a small locator map.
-   - Responsive stacking for narrow viewports.
+/* Announcements - ensure individual item animation works on mobile and desktop.
+   Items animate individually (CSS vertical-marquee). JS scroller is kept for
+   dynamic behavior (pause on focus/visibility/mouse) but will NOT fight the
+   CSS animation: when CSS animation is present JS will only provide pause/resume
+   behavior (it won't translate the whole list).
 */
 
 .announcement-container {
@@ -13,7 +15,6 @@
 /* the bar itself */
 .announcement-bar {
     background-color: #222;
-    /* good contrast */
     color: #fff;
     padding: 6px 12px;
     display: flex;
@@ -24,9 +25,10 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* scroll area */
+/* scroll area: fixed height + overflow hidden so absolutely-positioned items can animate */
 .announcement-text-container {
-    height: 22px;
+    height: 30px;               /* keep same height used by items */
+    line-height: 30px;
     flex-grow: 1;
     overflow: hidden;
     margin-right: 18px;
@@ -35,30 +37,56 @@
     align-items: center;
 }
 
-/* vertical list to be translated */
+/* vertical list to be translated or individually animated
+   Keep it absolute so .announcement-item can be absolutely positioned */
 .announcement-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    position: absolute;
+    position: absolute; /* allow items to be positioned independently */
     top: 0;
     left: 0;
     width: 100%;
+    box-sizing: border-box;
+    /* we prefer CSS per-item transitions; the JS scroller will not apply transforms
+       if CSS animation is active. The transition here is harmless when not used. */
     transition: transform 0.45s cubic-bezier(.2, .9, .2, 1);
     will-change: transform;
 }
 
-/* item styles */
+/* item styles: each item has the vertical-marquee animation that runs individually.
+   nth-child delays create the staggered vertical movement just like on desktop. */
 .announcement-list li {
-    line-height: 22px;
-    text-align: left;
-    padding-right: 6px;
-    font-size: 0.95rem;
-    white-space: nowrap;
+    position: absolute;
+    height: 30px;
+    line-height: 30px;
+    width: 100%;
+    left: 0;
+    top: 0;
+    padding-left: 8px;
+    font-size: 14px;
     color: #fff;
+    font-weight: 300;
+    white-space: nowrap;
+    animation: vertical-marquee 9s infinite;
+    opacity: 0;
 }
 
-/* city selector area on the right (inline) - now contains store locator + map */
+/* stagger delays for items so they appear one after another */
+.announcement-list li:nth-child(1) { animation-delay: 0s; }
+.announcement-list li:nth-child(2) { animation-delay: 3s; }
+.announcement-list li:nth-child(3) { animation-delay: 6s; }
+
+/* keyframes: slide in from bottom, stay, then slide up */
+@keyframes vertical-marquee {
+    0%   { transform: translateY(100%); opacity: 0; }
+    10%  { transform: translateY(0);   opacity: 1; }
+    30%  { transform: translateY(0);   opacity: 1; }
+    40%  { transform: translateY(-100%); opacity: 0; }
+    100% { transform: translateY(-100%); opacity: 0; }
+}
+
+/* city selector area on the right (inline) */
 .city-selector {
     display: flex;
     align-items: center;
@@ -66,7 +94,6 @@
     flex-shrink: 0;
 }
 
-/* store locator link */
 .shop-locator {
     color: #fff;
     text-decoration: none;
@@ -77,7 +104,7 @@
 
 .shop-locator:hover {
     text-decoration: underline;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255,255,255,0.03);
 }
 
 /* small locator map */
@@ -90,7 +117,7 @@
     border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Accessibility helper (if you still use it elsewhere) */
+/* Accessibility helper */
 .visually-hidden {
     position: absolute !important;
     height: 1px;
@@ -100,7 +127,7 @@
     white-space: nowrap;
 }
 
-/* Responsiveness: stack on smaller screens */
+/* Responsive stacking for narrow viewports: keep .announcement-list absolute so items still animate individually */
 @media (max-width: 768px) {
     .announcement-bar {
         flex-direction: column;
@@ -110,14 +137,16 @@
     }
 
     .announcement-text-container {
-        height: auto;
-        min-height: 22px;
+        height: 30px;  /* keep fixed height so absolutely-positioned items fit */
+        min-height: 30px;
         margin-right: 0;
     }
 
+    /* keep absolute positioning on mobile; do NOT change to relative */
     .announcement-list {
-        position: relative;
-        transform: none !important;
+        position: absolute;
+        top: 0;
+        left: 0;
     }
 
     .city-selector {
@@ -140,5 +169,21 @@
     .locator-map {
         width: 100%;
         height: 120px;
+    }
+}
+
+/* Respect users' reduced-motion preference: pause/stop individual animations entirely */
+@media (prefers-reduced-motion: reduce) {
+    .announcement-list,
+    .announcement-list li {
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+        position: relative !important;
+    }
+    .announcement-text-container {
+        overflow: visible;
+        height: auto;
     }
 }

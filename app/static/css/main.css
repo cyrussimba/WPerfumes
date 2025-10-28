@@ -1,3 +1,16 @@
+/*
+  Combined and complete main.css
+  - This file merges the original main.css you provided with the mobile/perf-focused
+    revisions (reduced-motion handling, responsive nav, hero/audio tweaks, card responsiveness,
+    announcement improvements, and overrides for small screens).
+  - I preserved the original large-screen rules and features so desktop/big-screen behaviour
+    remains intact, and added explicit mobile overrides later in the file so small-screen
+    improvements don't break big-screen layouts.
+*/
+
+/* =========================================================
+   VARIABLES
+   ========================================================= */
 :root {
     --max-section-width: 1200px;
     --section-padding: 5px 20px;
@@ -26,9 +39,14 @@
     --cart-badge-text: #fff;
     --cart-modal-bg: rgba(0, 0, 0, 0.18);
     --cart-modal-content: #fff;
+
+    /* Mobile/perf friendly overrides (small increments won't affect big-screen unless explicitly overridden below) */
+    --tap-size: 44px; /* recommended min touch target */
 }
 
-/* Reset and base */
+/* =========================================================
+   RESET + BASE
+   ========================================================= */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -45,8 +63,11 @@ body {
     background: linear-gradient(180deg, var(--primary-white) 0%, var(--light-beige) 100%);
     line-height: 1.6;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
+/* Section wrapper used by templates */
 section,
 nav,
 footer {
@@ -56,10 +77,22 @@ footer {
     width: 100%;
 }
 
-/* Announcement bar: keep the element sticky across the viewport
-   but constrain the visual band to the same centered max-width as other sections.
-   This implementation does NOT require changing the HTML.
-*/
+/* =========================================================
+   ACCESSIBILITY: REDUCED MOTION
+   ========================================================= */
+/* Respect user preference for reduced motion globally */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* =========================================================
+   ANNOUNCEMENT BAR (keeps centered max-width)
+   ========================================================= */
 #announcement {
     background: transparent;
     color: var(--primary-white);
@@ -104,46 +137,34 @@ footer {
     padding-left: 4px;
 }
 
-.announcement-item:nth-child(1) {
-    animation-delay: 0s;
-}
-
-.announcement-item:nth-child(2) {
-    animation-delay: 3s;
-}
-
-.announcement-item:nth-child(3) {
-    animation-delay: 6s;
-}
+.announcement-item:nth-child(1) { animation-delay: 0s; }
+.announcement-item:nth-child(2) { animation-delay: 3s; }
+.announcement-item:nth-child(3) { animation-delay: 6s; }
 
 @keyframes vertical-marquee {
     0% {
         transform: translateY(100%);
         opacity: 0;
     }
-
     10% {
         transform: translateY(0);
         opacity: 1;
     }
-
     30% {
         transform: translateY(0);
         opacity: 1;
     }
-
     40% {
         transform: translateY(-100%);
         opacity: 0;
     }
-
     100% {
         transform: translateY(-100%);
         opacity: 0;
     }
 }
 
-
+/* Blinking offer small banner */
 .blinking-offer {
     background: #fffbe7;
     color: #b8860b;
@@ -159,28 +180,16 @@ footer {
 }
 
 @keyframes blinking {
-
-    0%,
-    49% {
-        opacity: 1;
-    }
-
-    50%,
-    100% {
-        opacity: 0.35;
-    }
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0.35; }
 }
 
-/* NAVBAR
-   Adjust spacing and sizing so the whole nav fits on one horizontal line:
-   - reduce paddings and gaps
-   - prevent nav-tabs from wrapping
-   - make the center search smaller and fixed
-*/
+/* =========================================================
+   NAVBAR
+   ========================================================= */
 .navbar {
     background-color: var(--light-brown);
     padding: 6px 8px;
-    /* slightly narrower */
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -194,43 +203,35 @@ footer {
 
 .brand-logo {
     font-size: 20px;
-    /* slightly smaller */
     font-weight: bold;
     color: var(--dark-text);
     text-decoration: none;
     letter-spacing: 1px;
     margin-right: 12px;
-    /* reduced spacing to save room */
 }
 
-/* NAV TABS: allow items to stay on a single line by reducing gap and preventing wrap */
+/* NAV TABS: allows single-line by reducing gap & preventing wrap */
 .nav-tabs {
     list-style: none;
     padding: 0;
     margin: 0;
     display: flex;
     flex-wrap: nowrap;
-    /* prevent wrapping */
     gap: 4px;
-    /* reduced gap between items */
     align-items: center;
     overflow: hidden;
-    /* hide overflow if items are too many */
     max-width: calc(100vw - 520px);
-    /* soft limit to avoid pushing center/right off-screen */
 }
 
 .nav-tabs li {
     display: inline-block;
     max-width: 140px;
-    /* safeguard long labels */
 }
 
 .nav-tabs li a {
     text-decoration: none;
     color: var(--dark-text);
     padding: 6px 8px;
-    /* reduced padding */
     display: block;
     border-radius: 4px;
     transition: background-color 0.3s, color 0.3s;
@@ -238,7 +239,6 @@ footer {
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 13px;
-    /* slightly smaller font */
 }
 
 .nav-tabs li a:hover {
@@ -246,12 +246,9 @@ footer {
     color: var(--dark-accent);
 }
 
-/* Center search -- reduce size and fix width to keep layout stable.
-   The inline style in index.html sets a larger width; we use !important to ensure this stylesheet wins.
-*/
+/* Center search area */
 .navbar-center {
     flex: 0 0 200px;
-    /* fixed width to avoid pushing right-side controls */
     margin: 0 8px;
     display: flex;
     align-items: center;
@@ -267,7 +264,6 @@ footer {
 .search-container input[type="text"],
 .navbar-center .search-container input#siteSearchInput {
     width: 200px !important;
-    /* force smaller width */
     max-width: 45vw !important;
     padding: 6px 10px;
     border: 1px solid var(--light-silver);
@@ -278,7 +274,7 @@ footer {
     color: var(--dark-text);
 }
 
-/* Navbar right: keep compact */
+/* Navbar right */
 .navbar-right {
     display: flex;
     align-items: center;
@@ -289,7 +285,6 @@ footer {
     text-decoration: none;
     color: var(--dark-text);
     padding: 6px 8px;
-    /* smaller padding */
     margin-left: 6px;
     border: 1px solid var(--dark-text);
     border-radius: 4px;
@@ -298,7 +293,7 @@ footer {
     position: relative;
 }
 
-/* Login/Sign-up Hover Menu Styles */
+/* Login / sign-up hover menu */
 .login-menu-container {
     position: relative;
     margin-left: 6px;
@@ -346,7 +341,9 @@ footer {
     border-color: transparent;
 }
 
-/* Cart Modal Styles */
+/* =========================================================
+   CART MODALS & CHECKOUT
+   ========================================================= */
 .cart-modal-bg {
     position: fixed;
     top: 0;
@@ -374,7 +371,7 @@ footer {
     gap: 10px;
 }
 
-/* Styles for the new Checkout Modal (merged from checkout.html) */
+/* Checkout modal content */
 #checkoutModalContent {
     max-width: 540px;
     width: 95%;
@@ -532,7 +529,7 @@ footer {
     background: #e0e0e0;
 }
 
-/* Discount info message for promo/checkout discount */
+/* Discount info message */
 .discount-info {
     background: #f1c40f1a;
     color: #b8860b;
@@ -546,6 +543,7 @@ footer {
     align-items: center;
 }
 
+/* Cart modal header/footer */
 .cart-modal-header {
     font-size: 1.2em;
     font-weight: bold;
@@ -664,9 +662,7 @@ footer {
 
 .add-cart-btn {
     margin-top: 6px;
-    /* reduced vertical spacing to bring CTA closer to price */
     padding: 6px 12px;
-    /* slightly smaller padding so button doesn't push content down */
     background: var(--light-green);
     color: var(--dark-accent);
     border: none;
@@ -683,7 +679,9 @@ footer {
     background: #a5d6a7;
 }
 
-/* --- HERO SECTION ENHANCEMENTS --- */
+/* =========================================================
+   HERO SECTION
+   ========================================================= */
 #hero {
     background: linear-gradient(270deg, #A2D9A5, #fffbe7, #f8c471, #A2D9A5);
     background-size: 600% 600%;
@@ -692,16 +690,13 @@ footer {
     padding: 5px 0;
     position: relative;
     overflow: auto;
-    /* Allows hero to grow if content is larger */
     min-height: 200px;
 }
 
 #hero .hero-inner p,
 #hero .hero-inner .hero-cta-btn,
 #hero .hero-inner .hero-badge {
-    /* Halve font sizes and spacing for compact view */
     font-size: 90%;
-    /* Optional: fine-tune individual elements below for best fit */
 }
 
 #hero .hero-inner h2 {
@@ -720,17 +715,9 @@ footer {
 }
 
 @keyframes heroGradientMove {
-    0% {
-        background-position: 0% 50%;
-    }
-
-    50% {
-        background-position: 100% 50%;
-    }
-
-    100% {
-        background-position: 0% 50%;
-    }
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 #hero h2 {
@@ -739,7 +726,6 @@ footer {
     animation: heroHeadingIn 1.2s 0.3s cubic-bezier(.77, 0, .18, 1) forwards;
     font-family: var(--header-font);
     font-size: 50px;
-    /* Size of letters in Handpicked Luxury Fragrances */
     color: var(--primary-black);
     margin-bottom: 10px;
     letter-spacing: 0.02em;
@@ -747,10 +733,7 @@ footer {
 }
 
 @keyframes heroHeadingIn {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 #hero p {
@@ -762,11 +745,7 @@ footer {
     margin: 0 auto;
 }
 
-@keyframes heroSubFade {
-    to {
-        opacity: 1;
-    }
-}
+@keyframes heroSubFade { to { opacity: 1; } }
 
 .hero-cta-btn {
     display: inline-block;
@@ -805,14 +784,8 @@ footer {
 }
 
 @keyframes sparkleMove {
-    from {
-        transform: scale(0.2) translateY(0);
-    }
-
-    to {
-        transform: scale(1.3) translateY(-16px);
-        opacity: 0;
-    }
+    from { transform: scale(0.2) translateY(0); }
+    to { transform: scale(1.3) translateY(-16px); opacity: 0; }
 }
 
 .hero-badge {
@@ -829,15 +802,8 @@ footer {
 }
 
 @keyframes badgePop {
-    from {
-        opacity: 0;
-        transform: scale(0.7);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.7); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 .hero-main-img {
@@ -849,15 +815,8 @@ footer {
 }
 
 @keyframes floatImg {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-18px);
-    }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-18px); }
 }
 
 #hero-audio-player {
@@ -875,9 +834,7 @@ footer {
     min-width: 74px;
 }
 
-#hero-audio-player audio {
-    display: none;
-}
+#hero-audio-player audio { display: none; }
 
 #heroAudioMuteBtn {
     background: none;
@@ -890,10 +847,7 @@ footer {
     transition: color 0.2s;
 }
 
-#heroAudioMuteBtn:hover #heroAudioMuteIcon {
-    color: #e67e22;
-}
-
+#heroAudioMuteBtn:hover #heroAudioMuteIcon { color: #e67e22; }
 
 #hero {
     overflow: visible;
@@ -913,10 +867,9 @@ footer {
 .hero-inner {
     width: auto;
     max-width: none;
-    /* Remove container/max-width styles if present */
 }
 
-/* Scaling at breakpoints */
+/* Scaling at breakpoints (desktop kept as-is) */
 @media (max-width: 980px) {
     .hero-scaling-wrapper {
         transform: scale(0.95);
@@ -938,6 +891,9 @@ footer {
     }
 }
 
+/* =========================================================
+   GENERAL LAYOUT CONTAINERS
+   ========================================================= */
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -947,8 +903,6 @@ footer {
     box-sizing: border-box;
 }
 
-
-
 #hero p {
     font-size: 2.2rem;
     color: var(--gray);
@@ -956,6 +910,9 @@ footer {
     margin: 0 auto;
 }
 
+/* =========================================================
+   SECTION HEADINGS
+   ========================================================= */
 .section-heading-row {
     display: flex;
     align-items: baseline;
@@ -994,20 +951,9 @@ footer {
 }
 
 @keyframes underline-slide {
-    0% {
-        width: 0;
-        opacity: 0.5;
-    }
-
-    70% {
-        width: 100%;
-        opacity: 1;
-    }
-
-    100% {
-        width: 100%;
-        opacity: 1;
-    }
+    0% { width: 0; opacity: 0.5; }
+    70% { width: 100%; opacity: 1; }
+    100% { width: 100%; opacity: 1; }
 }
 
 .section-heading-row h3:not(.signature) {
@@ -1031,6 +977,9 @@ hr.section-divider {
     width: 100%;
 }
 
+/* =========================================================
+   CAROUSEL / SIGNATURE SECTION
+   ========================================================= */
 #signature .card-section-wrapper {
     overflow: hidden;
     max-width: var(--max-section-width);
@@ -1069,12 +1018,9 @@ hr.section-divider {
     min-height: var(--card-height);
 }
 
-/* Product card design improvements:
-   - Larger visual area for the image (occupies more of the card).
-   - Product details (name, price, CTA) are pushed to the bottom by using margin-top: auto
-     so they sit close to the CTA and reduce vertical gaps.
-   - Reduced padding and smaller CTA margin to compress vertical spacing.
-*/
+/* =========================================================
+   PRODUCT CARD STYLES
+   ========================================================= */
 .product-card {
     width: var(--card-width);
     height: var(--card-height);
@@ -1086,7 +1032,6 @@ hr.section-divider {
     transition: transform 0.3s, box-shadow 0.3s;
     text-align: center;
     padding: 8px;
-    /* reduced padding so image can grow */
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -1095,18 +1040,15 @@ hr.section-divider {
     cursor: pointer;
 }
 
-/* Slightly larger hover scale retained */
 .product-card:hover {
     transform: scale(1.08) translateY(-7px);
     box-shadow: var(--beige-shadow-hover);
     z-index: 9;
 }
 
-/* Make the image wrapper use the majority of the card (larger image) */
 .card-image-wrapper {
     width: 100%;
     height: 70%;
-    /* increased from 70% -> larger image area */
     background: none;
     border-radius: 8px;
     display: flex;
@@ -1114,11 +1056,9 @@ hr.section-divider {
     justify-content: center;
     overflow: hidden;
     margin-bottom: 6px;
-    /* small gap */
     flex-shrink: 0;
 }
 
-/* Ensure image fills wrapper height while maintaining aspect ratio */
 .product-image {
     height: 100%;
     width: auto;
@@ -1127,27 +1067,21 @@ hr.section-divider {
     transition: transform 0.25s ease;
 }
 
-/* subtle zoom on hover for more visual punch */
 .product-card:hover .product-image {
     transform: scale(1.03);
 }
 
-/* Card details are pushed to the bottom area to keep name & price near CTA */
 .card-details {
     width: 100%;
     margin-top: auto;
-    /* push details to bottom, creating space above for image */
     padding: 6px 4px;
-    /* small padding so text is close together */
     display: flex;
     flex-direction: column;
     gap: 4px;
-    /* reduced gap between name and price */
     align-items: center;
     justify-content: center;
 }
 
-/* Slightly tighter typography */
 .card-name {
     font-family: 'Georgia', serif;
     font-size: 13px;
@@ -1167,6 +1101,9 @@ hr.section-divider {
     margin-bottom: 0;
 }
 
+/* =========================================================
+   TESTIMONIALS & FOOTER
+   ========================================================= */
 #testimonials {
     background: linear-gradient(180deg, var(--primary-white) 0%, var(--light-beige) 100%);
     padding: 5px 20px;
@@ -1216,7 +1153,9 @@ hr.section-divider {
     width: 100%;
 }
 
-/* Overlay styles */
+/* =========================================================
+   PRODUCT DETAIL OVERLAY
+   ========================================================= */
 #productDetailOverlay {
     display: none;
     position: absolute;
@@ -1291,8 +1230,10 @@ hr.section-divider {
     color: #e74c3c;
 }
 
+/* =========================================================
+   RESPONSIVE OVERRIDES (original file also included responsive rules; keep them)
+   ========================================================= */
 @media (max-width: 1024px) {
-
     .card-section-wrapper,
     #testimonials,
     #announcement,
@@ -1328,10 +1269,8 @@ hr.section-divider {
     .product-card {
         width: 120px;
         height: 200px;
-        /* slightly smaller on mobile but keep image proportionally large */
     }
 
-    /* adjust image wrapper proportion for smaller cards */
     .card-image-wrapper {
         height: 72%;
     }
@@ -1362,7 +1301,6 @@ hr.section-divider {
         width: 30px;
     }
 
-    /* On smaller screens reduce the inner announcement padding */
     .announcement-scroller {
         padding: 0 12px;
     }
@@ -1426,12 +1364,110 @@ hr.section-divider {
 
 /* Media query to hide non-signature sections on mobile devices */
 @media (max-width: 768px) {
-
     /* These IDs correspond to the keys in the SECTIONS object in main.js */
     #men,
     #women,
     #offers {
         display: none !important;
-        /* Hides the entire section element */
     }
+}
+
+/* =========================================================
+   ADDITIONAL MOBILE / PERFORMANCE OVERRIDES
+   (Placed after original rules to ensure they take precedence on small screens)
+   ========================================================= */
+
+/* Make nav-tabs horizontally scrollable on small -> big screens with native momentum */
+@media (max-width: 1200px) {
+    .nav-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+    }
+    .nav-tabs li a {
+        white-space: nowrap;
+    }
+}
+
+/* Improve touch targets in navbar-right and nav links */
+@media (max-width: 900px) {
+    .navbar-right a, .navbar-right .login-btn, .nav-tabs li a {
+        padding: 10px 12px;
+        min-height: var(--tap-size);
+        display: inline-flex;
+        align-items: center;
+    }
+}
+
+/* Reduce hero animation pressure on smaller screens and for reduced motion */
+@media (max-width: 900px), (prefers-reduced-motion: reduce) {
+    #hero {
+        animation: none !important;
+    }
+    .hero-main-img, .hero-sparkle {
+        animation: none !important;
+    }
+    .hero-cta-btn {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+}
+
+/* Cards responsive: 2-column grid on mid screens, single column on small devices */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .product-card {
+        width: calc(33.333% - 12px);
+        height: auto;
+    }
+    .card-image-wrapper { height: 160px; }
+}
+@media (max-width: 768px) {
+    .product-card {
+        width: calc(50% - 10px);
+        height: auto;
+    }
+    .card-image-wrapper { height: 160px; }
+}
+@media (max-width: 420px) {
+    .product-card {
+        width: 100%;
+    }
+    .card-image-wrapper { height: 140px; }
+}
+
+/* Reduce box-shadow and hover transforms on mobile to avoid repaint */
+@media (max-width: 768px) {
+    .product-card:hover { transform: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+}
+
+/* Announcement scroller: disable automatic animation if user prefers reduced motion or on small devices */
+@media (prefers-reduced-motion: reduce), (max-width: 420px) {
+    .announcement-item { animation: none !important; position: relative; opacity: 1 !important; transform: none !important; }
+    .announcement-scroller { overflow: visible; }
+}
+
+/* Smaller announcement inner padding on mobile */
+@media (max-width: 768px) {
+    .announcement-scroller { padding: 0 12px; }
+}
+
+/* Cart modal: make footer buttons larger on touch devices */
+@media (max-width: 640px) {
+    .cart-modal-content .form-buttons button, .cart-modal-footer a, .cart-modal-footer button {
+        padding: 12px 14px;
+        font-size: 16px;
+    }
+    .cart-modal-content { padding: 16px; }
+}
+
+/* Make image wrappers enforce aspect ratio and help layout shift avoidance */
+.product-image, #productDetailOverlay img {
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+}
+
+/* Ensure the hero audio player doesn't obstruct small screens: smaller padding & reposition */
+@media (max-width: 640px) {
+    #hero-audio-player { top: 8px; left: 8px; padding: 6px 8px; min-width: 60px; }
+    #heroAudioMuteBtn { font-size: 1.05em; }
 }

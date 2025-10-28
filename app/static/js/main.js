@@ -1,15 +1,9 @@
 // app/static/js/main.js
-// Full main.js with small compatibility aliases added so templates that call
-// openCheckoutModal/closeCheckoutModal or openCartModal/closeCartModal work.
-//
-// - Preserves all behavior from the previous main.js (cart management, promo handling,
-//   checkout modal, PayPal modal rendering helper).
-// - Adds window.openCheckoutModal / window.closeCheckoutModal as aliases to showCheckoutModal/hideCheckoutModal
-//   and similar aliases for cart modal and helpers.
-//
-// NOTE: small change: attachProductCardListeners now navigates to brand_detail using
-// query params and includes product_id when available to ensure the detail page can
-// fetch the exact product (avoids slug ambiguities).
+// Mobile/perf improvements:
+// - lazy load images (loading="lazy" decoding="async")
+// - dynamic on-demand PayPal SDK loader
+// - reduced hero audio preload on mobile (handled in HTML)
+// - smaller, defensive tweaks for mobile and reduced-motion users
 
 const API = "/api";
 
@@ -20,14 +14,12 @@ const SECTIONS = {
     offers: "Hot Offers"
 };
 
-// FX: currency conversion support (GBP primary, show USD equivalents)
 let fxRateGBPtoUSD = null;
 const FX_CACHE_KEY = 'fx_gbp_usd';
-const FX_TTL_MS = 60 * 60 * 1000; // 1 hour
+const FX_TTL_MS = 60 * 60 * 1000;
 
 async function fetchFXRateGBPtoUSD() {
     try {
-        // Check cache first
         const raw = localStorage.getItem(FX_CACHE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
@@ -36,8 +28,6 @@ async function fetchFXRateGBPtoUSD() {
                 return fxRateGBPtoUSD;
             }
         }
-
-        // Use free exchangerate.host endpoint (no API key)
         const res = await fetch('https://api.exchangerate.host/latest?base=GBP&symbols=USD');
         if (!res.ok) throw new Error(`FX fetch failed: ${res.status}`);
         const js = await res.json();
@@ -50,8 +40,6 @@ async function fetchFXRateGBPtoUSD() {
             throw new Error('Invalid rate from FX provider');
         }
     } catch (err) {
-        console.warn('fetchFXRateGBPtoUSD failed, using cached or fallback', err);
-        // Try to use cached even if stale
         try {
             const raw = localStorage.getItem(FX_CACHE_KEY);
             if (raw) {
@@ -61,9 +49,8 @@ async function fetchFXRateGBPtoUSD() {
                     return fxRateGBPtoUSD;
                 }
             }
-        } catch (e) { /* ignore */ }
-        // fallback conservative estimate if nothing else available
-        if (!fxRateGBPtoUSD) fxRateGBPtoUSD = 1.25; // conservative fallback
+        } catch (e) {}
+        if (!fxRateGBPtoUSD) fxRateGBPtoUSD = 1.25;
         return fxRateGBPtoUSD;
     }
 }
@@ -88,38 +75,27 @@ function formatCurrency(value, currency = 'GBP') {
     return String(n);
 }
 
-// Helpers for rounding/display
 function roundInteger(value) {
     return Math.round(Number(value) || 0);
 }
 function formatPriceInteger(value) {
-    // Backwards-compatible alias: shows GBP by default
     return formatCurrency(value, 'GBP');
 }
 
-// Unified Cart state, loaded from localStorage
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 let appliedPromo = null;
 let promoDiscountValue = 0;
 let promoDiscountType = null;
 let checkoutDiscountPercent = 0;
 
-/*
- * Button state helper
- * btn: DOM element
- * enabled: boolean
- * opts: optional object {activeBg, disabledBg, activeTextColor, disabledTextColor, reason}
- */
 function setButtonState(btn, enabled, opts = {}) {
     if (!btn) return;
     btn.disabled = !enabled;
     const reason = opts.reason || '';
-    // accessibility
     btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
     if (!enabled && reason) btn.setAttribute('title', reason);
     else btn.removeAttribute('title');
 
-    // visual: class + inline color fallback (ensures style even if CSS missing)
     btn.classList.remove('btn-active', 'btn-disabled');
     if (enabled) {
         btn.classList.add('btn-active');
@@ -136,8 +112,6 @@ function setButtonState(btn, enabled, opts = {}) {
     }
 }
 
-// --- PROMO DISCOUNT FETCH & DISPLAY ---
-// (enhanced to fetch FX as well and re-render where needed)
 async function fetchAndDisplayDiscountInfo() {
     let percent = 0;
     try {
@@ -153,11 +127,8 @@ async function fetchAndDisplayDiscountInfo() {
         console.warn('fetchAndDisplayDiscountInfo error', err);
     }
     checkoutDiscountPercent = percent;
-
-    // Also fetch FX rate so USD equivalents can be shown
     await fetchFXRateGBPtoUSD();
 
-    // Cart Modal info
     const cartDiscDiv = document.getElementById('cartDiscountInfo');
     if (cartDiscDiv) {
         if (percent > 0) {
@@ -169,7 +140,6 @@ async function fetchAndDisplayDiscountInfo() {
         }
     }
 
-    // Checkout Modal info (cover multiple potential IDs)
     const checkoutDiscDiv = document.getElementById('checkoutDiscountInfo') || document.getElementById('modalDiscountInfo') || document.getElementById('discountPercentInfo');
     if (checkoutDiscDiv) {
         if (percent > 0) {
@@ -181,7 +151,6 @@ async function fetchAndDisplayDiscountInfo() {
         }
     }
 
-    // Homepage Blinking Offer Banner
     const blinkingOfferDiv = document.getElementById('blinking-offer');
     if (blinkingOfferDiv) {
         if (percent > 0) {
@@ -197,7 +166,6 @@ async function fetchAndDisplayDiscountInfo() {
     }
 }
 
-// --- Order Confirmation Modal ---
 function showOrderConfirmation(total) {
     const el = document.getElementById('orderConfirmationMsg') || document.getElementById('orderConfirmationMsg');
     if (el) {
@@ -218,7 +186,6 @@ function hideOrderConfirmation() {
     if (bg) bg.style.display = 'none';
 }
 
-// --- Cart State Functions ---
 function saveCart() {
     localStorage.setItem('cart', JSON.stringify(cart));
 }
@@ -233,15 +200,12 @@ function updateCartCount() {
     const totalQty = cart.reduce((sum, item) => sum + (item.qty || item.quantity || 0), 0);
     if (totalQty > 0) {
         cartCountEl.textContent = totalQty;
-        cartCountEl.style.display = 'flex';
+        cartCountEl.style.display = 'inline-flex';
     } else {
         cartCountEl.style.display = 'none';
     }
 }
 
-/*
- * When adding to cart we show a popup (checkout if available, otherwise cart modal).
- */
 function addToCart(product) {
     const id = product.id || product.title;
     const idx = findCartIndexById(id);
@@ -262,7 +226,6 @@ function addToCart(product) {
     }
 }
 
-// --- Cart Modal Functions ---
 function showCartModal() {
     const bg = document.getElementById("cartModalBg");
     if (bg) bg.style.display = 'flex';
@@ -301,7 +264,7 @@ function renderCartModal() {
         html += `
         <div class="cart-list-item" data-id="${item.id}">
             <div class="cart-list-details">
-                <img class="cart-list-img" src="${item.image_url || item.image || ''}" alt="${item.title}">
+                <img class="cart-list-img" src="${item.image_url || item.image || ''}" alt="${item.title}" loading="lazy" decoding="async">
                 <div>
                     <div class="cart-list-title">${item.title}</div>
                     <div class="cart-list-price">${priceGBP} <span class="small-muted" style="font-size:0.95em;margin-left:6px;">≈ ${priceUSD}</span></div>
@@ -340,49 +303,60 @@ window.updateCartModalQuantity = function (idx, change) {
     }
 }
 
-// --- Checkout Modal Functions ---
-// (tryRenderModalPayPal etc. remain unchanged, but renderCheckoutView uses formatCurrency)
+// PayPal SDK loader (load on-demand to reduce initial page weight)
+function loadScriptOnce(src, attrs = {}) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[data-src="${src}"]`) || document.querySelector(`script[src^="${src.split('?')[0]}"]`)) {
+            return resolve();
+        }
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.setAttribute('data-src', src);
+        Object.keys(attrs).forEach(k => s.setAttribute(k, attrs[k]));
+        s.onload = () => resolve();
+        s.onerror = (e) => reject(e);
+        document.head.appendChild(s);
+    });
+}
+
 function tryRenderModalPayPal(opts = { currency: 'USD', successUrl: '/' }) {
     const containerSelector = '#modal_paypal_button_container';
     const container = document.querySelector(containerSelector);
-    if (!container) return; // nothing to do on pages without the modal container
+    if (!container) return;
 
-    // Avoid double-render
-    if (container.dataset.paypalRendered === '1') return;
-
-    // Poll for window.paypal and for the helper renderPayPalButtons
-    let tries = 0;
-    const maxTries = 50; // ~5 seconds (100ms interval)
-    const interval = setInterval(() => {
-        tries++;
-        if (typeof window.paypal !== 'undefined' && (typeof window.renderPayPalButtons === 'function' || typeof renderPayPalButtons === 'function')) {
-            try {
-                // Only render into an empty container
-                if (!container.innerHTML.trim()) {
-                    try {
-                        // prefer global named helper if available
+    const renderWhenReady = () => {
+        let tries = 0;
+        const maxTries = 60;
+        const interval = setInterval(() => {
+            tries++;
+            if (typeof window.paypal !== 'undefined' && (typeof window.renderPayPalButtons === 'function' || typeof renderPayPalButtons === 'function')) {
+                try {
+                    if (!container.innerHTML.trim()) {
                         const helper = (typeof window.renderPayPalButtons === 'function') ? window.renderPayPalButtons : (typeof renderPayPalButtons === 'function' ? renderPayPalButtons : null);
                         if (helper) {
                             helper(containerSelector, opts);
                             container.dataset.paypalRendered = '1';
-                        } else {
-                            console.warn('PayPal helper function not found despite SDK present.');
                         }
-                    } catch (err) {
-                        console.warn('renderPayPalButtons threw:', err);
+                    } else {
+                        container.dataset.paypalRendered = '1';
                     }
-                } else {
-                    // already has content; mark as rendered and stop
-                    container.dataset.paypalRendered = '1';
+                } finally {
+                    clearInterval(interval);
                 }
-            } finally {
+            } else if (tries >= maxTries) {
                 clearInterval(interval);
             }
-        } else if (tries >= maxTries) {
-            clearInterval(interval);
-            // Give up silently; PayPal may not be needed on this page
-        }
-    }, 100);
+        }, 100);
+    };
+
+    if (typeof window.paypal === 'undefined') {
+        const clientId = 'AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f';
+        const src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${opts.currency}`;
+        loadScriptOnce(src).then(renderWhenReady).catch(err => console.warn('PayPal SDK failed to load', err));
+    } else {
+        renderWhenReady();
+    }
 }
 
 function showCheckoutModal() {
@@ -390,27 +364,19 @@ function showCheckoutModal() {
     if (bg) bg.style.display = 'flex';
     fetchAndDisplayDiscountInfo();
     renderCheckoutView();
-
-    // Render PayPal buttons into the modal (if available). Use a short delay to ensure modal becomes visible.
     setTimeout(() => {
         tryRenderModalPayPal({ currency: 'USD', successUrl: '/' });
-    }, 200);
+    }, 220);
 }
 function hideCheckoutModal() {
-    const bg = document.getElementById("checkoutModalBg");
+    const bg = document.getElementById('checkoutModalBg');
     if (bg) bg.style.display = 'none';
 }
 
-/*
- * togglePaymentButtons
- * Updates the enabled/disabled state + visual styles for "Place Order" (checkoutBtn)
- * and "Buy Now" (buyNowBtn) based on the selected payment method.
- */
 function togglePaymentButtons() {
     const contexts = [
         { paymentId: 'paymentSelect', placeId: 'checkoutBtn', buyId: 'buyNowBtn' },
-        { paymentId: 'modal_paymentSelect', placeId: 'modalPlaceOrderBtn', buyId: 'modalBuyNowBtn' },
-        { paymentId: 'paymentSelect', placeId: 'checkoutBtn', buyId: 'buyNowBtn' }
+        { paymentId: 'modal_paymentSelect', placeId: 'modalPlaceOrderBtn', buyId: 'modalBuyNowBtn' }
     ];
 
     contexts.forEach(ctx => {
@@ -560,11 +526,10 @@ async function logOrderAttempt(item, status = "Carted") {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, product: item.title, qty: item.qty || item.quantity || 1, status })
         });
-    } catch (error) { /* ignore network errors */ }
+    } catch (error) { /* ignore */ }
 }
 
-// --- Homepage Loading & Product Listeners ---
-// (no changes here beyond ensuring FX is fetched on load)
+// Homepage/rendering: include lazy loading and decoding hints
 function createSignatureSection(products) {
     let html = `<section id="signature">
         <div class="section-heading-row signature">
@@ -579,9 +544,9 @@ function createSignatureSection(products) {
         for (const p of products) {
             const productObj = { ...p, id: p.id || p._id || p.title };
             html += `
-            <div class="product-card">
+            <div class="product-card" role="button" tabindex="0">
                 <div class="card-image-wrapper">
-                    <img src="${p.image_url}" alt="${p.title}" class="product-image">
+                    <img src="${p.image_url || window.PLACEHOLDER_IMG}" alt="${p.title}" class="product-image" loading="lazy" decoding="async" width="400" height="400">
                 </div>
                 <div class="card-details">
                     <div class="card-name">${p.title}</div>
@@ -613,9 +578,9 @@ function createSection(sectionKey, products) {
         for (const p of products) {
             const productObj = { ...p, id: p.id || p._id || p.title };
             html += `
-            <div class="product-card">
+            <div class="product-card" role="button" tabindex="0">
                 <div class="card-image-wrapper">
-                    <img src="${p.image_url}" alt="${p.title}" class="product-image">
+                    <img src="${p.image_url || window.PLACEHOLDER_IMG}" alt="${p.title}" class="product-image" loading="lazy" decoding="async" width="400" height="400">
                 </div>
                 <div class="card-details">
                     <div class="card-name">${p.title}</div>
@@ -679,7 +644,7 @@ async function loadHomepageSections() {
             direction = 1;
             container.style.transform = "translateX(0)";
             scrollDist = getScrollDistance();
-            if (scrollDist > 0) rafId = requestAnimationFrame(animate);
+            if (scrollDist > 0 && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) rafId = requestAnimationFrame(animate);
         }
         startAnim();
         container.addEventListener("mouseenter", () => { if (rafId) cancelAnimationFrame(rafId); });
@@ -711,19 +676,19 @@ function showProductDetailOverlay(card, brand, title) {
     const overlayContent = document.getElementById('overlayContent');
     if (!overlay || !overlayContent) return;
     overlay.style.display = "block";
-    overlay.style.left = (card.getBoundingClientRect().left + window.scrollX + card.offsetWidth + 10) + "px";
-    overlay.style.top = (card.getBoundingClientRect().top + window.scrollY - 20) + "px";
+    overlay.style.left = (card.getBoundingClientRect().left + window.scrollX + card.offsetWidth + 8) + "px";
+    overlay.style.top = (card.getBoundingClientRect().top + window.scrollY - 10) + "px";
     overlayContent.innerHTML = "Loading...";
     fetch(getProductDetailApiUrl(brand, title))
         .then(res => res.json())
         .then(product => {
             overlayContent.innerHTML = `
-                <img src="${product.image_url}" alt="${product.title}" />
+                <img src="${product.image_url || window.DEFAULT_PRODUCT_IMG}" alt="${product.title}" loading="lazy" decoding="async" width="150" height="150" />
                 <h2>${product.title}</h2>
                 <div class="overlay-brand">${product.brand}</div>
                 <div class="overlay-price">${formatCurrency(product.price || 0, 'GBP')}</div>
-                <div class="overlay-desc">${product.description}</div>
-                <div class="overlay-notes"><b>Key Notes:</b> ${Array.isArray(product.keyNotes) ? product.keyNotes.join(', ') : product.keyNotes}</div>
+                <div class="overlay-desc">${product.description || ''}</div>
+                <div class="overlay-notes"><b>Key Notes:</b> ${Array.isArray(product.keyNotes) ? product.keyNotes.join(', ') : (product.keyNotes || '')}</div>
                 <div class="overlay-tags"><b>Tags:</b> ${product.tags || 'None'}</div>
             `;
         })
@@ -749,29 +714,34 @@ function attachProductCardListeners() {
         let title = productData?.title || productData?.name || '';
         let productId = productData?.id || productData?._id || '';
 
-        card.onclick = function (e) {
-            // if clicking on the buy/add button, let that button handle it
+        card.addEventListener('click', function (e) {
             if (e.target && e.target.classList && e.target.classList.contains('add-cart-btn')) return;
-
             if (brand && title) {
-                // Navigate to brand_detail using querystring and include a product_id if available.
-                // Using query params keeps behavior consistent with existing templates that expect brand_detail?brand=...&product=...
                 const brandParam = encodeURIComponent(String(brand).replace(/\s+/g, '_'));
                 const productSlug = encodeURIComponent(String(title).replace(/\s+/g, '_'));
                 const idPart = productId ? `&product_id=${encodeURIComponent(productId)}` : '';
                 window.location.href = `/brand_detail?brand=${brandParam}&product=${productSlug}${idPart}`;
             }
-        };
-        card.onmouseenter = function () { if (brand && title) showProductDetailOverlay(card, brand, title); };
-        card.onmouseleave = hideProductDetailOverlay;
+        });
+
+        card.addEventListener('mouseenter', function () {
+            if (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) return;
+            if (brand && title) showProductDetailOverlay(card, brand, title);
+        });
+        card.addEventListener('mouseleave', hideProductDetailOverlay);
+
+        card.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                card.click();
+            }
+        });
     });
 }
 
 document.getElementById && document.getElementById('overlayCloseBtn') && (document.getElementById('overlayCloseBtn').onclick = hideProductDetailOverlay);
 
-// Initialization: attach listeners and wire up payment-selection logic
 document.addEventListener('DOMContentLoaded', function () {
-    // Cart modal listeners
     const cartBtn = document.getElementById('cartBtn');
     const cartModalClose = document.getElementById('cartModalCloseBtn');
     const cartModalBg = document.getElementById('cartModalBg');
@@ -781,14 +751,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (modalExists) {
             e.preventDefault();
             showCartModal();
-        } else {
-            // allow default navigation to /cart
         }
     });
     if (cartModalClose) cartModalClose.addEventListener('click', hideCartModal);
     if (cartModalBg) cartModalBg.addEventListener('click', (e) => { if (e.target === e.currentTarget) hideCartModal(); });
 
-    // Checkout modal listeners
     const checkoutClose = document.getElementById('checkoutModalCloseBtn');
     const checkoutBg = document.getElementById('checkoutModalBg');
     const paymentSelect = document.getElementById('paymentSelect');
@@ -799,7 +766,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalPaymentSelect = document.getElementById('modal_paymentSelect');
     if (modalPaymentSelect) modalPaymentSelect.addEventListener('change', togglePaymentButtons);
 
-    // promo code apply logic (checkout page)
     const applyPromoBtn = document.getElementById('applyPromoBtn');
     if (applyPromoBtn) {
         applyPromoBtn.onclick = async function () {
@@ -843,7 +809,6 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
-    // Checkout form submission (main checkout modal)
     const orderForm = document.getElementById('orderForm');
     if (orderForm) {
         orderForm.onsubmit = async function (e) {
@@ -905,18 +870,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     const promoMsg = document.getElementById('promoMsg');
                     if (promoMsg) promoMsg.textContent = '';
                     hideOrderConfirmation();
-                }, 4000);
+                }, 3000);
             } else {
                 togglePaymentButtons();
             }
         };
     }
 
-    // Buy Now button in checkout modal (initiate PayPal card flow if available)
     const buyNowBtn = document.getElementById('buyNowBtn');
     if (buyNowBtn) {
         buyNowBtn.addEventListener('click', async function () {
-            // Collect customer info from checkout fields so we can attach it to the PayPal return/capture
             const customer = {};
             const custEl = document.getElementById('customer');
             const emailEl = document.getElementById('email');
@@ -927,9 +890,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (phoneEl) customer.phone = phoneEl.value || '';
             if (addressEl) customer.address = addressEl.value || '';
 
-            try { localStorage.setItem('paypal_customer', JSON.stringify(customer)); } catch (e) { /* ignore */ }
+            try { localStorage.setItem('paypal_customer', JSON.stringify(customer)); } catch (e) { }
 
-            // Build items for server
             const itemsForServer = cart.map(i => ({
                 id: i.id || i.product_id || '',
                 title: i.title || i.name || '',
@@ -937,22 +899,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 quantity: Number(i.qty || i.quantity || 1),
                 currency: 'USD'
             }));
-            try { localStorage.setItem('paypal_items', JSON.stringify(itemsForServer)); } catch (e) { /* ignore */ }
+            try { localStorage.setItem('paypal_items', JSON.stringify(itemsForServer)); } catch (e) { }
 
-            // Initiate card checkout using the helper provided by static/js/paypal.js
             if (typeof window.initiateCardCheckout === 'function') {
                 try {
                     await window.initiateCardCheckout(itemsForServer, { currency: 'USD', returnUrl: window.location.origin + '/paypal/return' });
-                    // The call should redirect to PayPal. Execution will stop here if redirect occurs.
                 } catch (err) {
                     console.error('Buy Now (card) initiation failed', err);
-                    // Fall back to showing an error message and re-enable buttons
                     const orderMsg = document.getElementById('orderMsg');
                     if (orderMsg) orderMsg.innerHTML = '<div style="color:#e74c3c;">Failed to initiate payment. Please try again.</div>';
                     togglePaymentButtons();
                 }
             } else {
-                // If helper not available, fall back to simulated success (keeps legacy behavior)
                 const orderTotal = getDiscountedTotal();
                 hideCheckoutModal();
                 showOrderConfirmation(orderTotal);
@@ -970,7 +928,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const promoMsg = document.getElementById('promoMsg');
                     if (promoMsg) promoMsg.textContent = '';
                     hideOrderConfirmation();
-                }, 4000);
+                }, 3000);
             }
         });
     }
@@ -978,7 +936,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalBuyNow = document.getElementById('modalBuyNowBtn');
     if (modalBuyNow) {
         modalBuyNow.addEventListener('click', async function () {
-            // Collect modal form fields
             const customer = {};
             const custEl = document.getElementById('modal_customer');
             const emailEl = document.getElementById('modal_email');
@@ -989,7 +946,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (phoneEl) customer.phone = phoneEl.value || '';
             if (addressEl) customer.address = addressEl.value || '';
 
-            try { localStorage.setItem('paypal_customer', JSON.stringify(customer)); } catch (e) { /* ignore */ }
+            try { localStorage.setItem('paypal_customer', JSON.stringify(customer)); } catch (e) { }
 
             const cartLocal = JSON.parse(localStorage.getItem('cart') || "[]");
             const itemsForServer = cartLocal.map(i => ({
@@ -999,7 +956,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 quantity: Number(i.qty || i.quantity || 1),
                 currency: 'USD'
             }));
-            try { localStorage.setItem('paypal_items', JSON.stringify(itemsForServer)); } catch (e) { /* ignore */ }
+            try { localStorage.setItem('paypal_items', JSON.stringify(itemsForServer)); } catch (e) { }
 
             if (typeof window.initiateCardCheckout === 'function') {
                 try {
@@ -1011,7 +968,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     updateModalPaymentButtonsState();
                 }
             } else {
-                // fallback simulation to keep legacy behavior if PayPal helper missing
                 const orderTotal = getDiscountedTotal();
                 const modalOrderForm = document.getElementById('modalOrderForm');
                 if (modalOrderForm) modalOrderForm.reset();
@@ -1040,26 +996,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target === e.currentTarget) hideOrderConfirmation();
     });
 
-    // Wire up payment selects found on the page so UI is reactive immediately
     const allPaymentSelects = document.querySelectorAll('#paymentSelect, #modal_paymentSelect, select.payment-select');
     allPaymentSelects.forEach(sel => sel.addEventListener('change', togglePaymentButtons));
 
-    // Make sure buttons reflect current payment selection on load
     fetchAndDisplayDiscountInfo();
-    setInterval(fetchAndDisplayDiscountInfo, 30000); // real-time offer update
+    setInterval(fetchAndDisplayDiscountInfo, 60000);
     loadHomepageSections();
     updateCartCount();
     togglePaymentButtons();
 
-    // Fetch FX rate early so conversions appear promptly
     fetchFXRateGBPtoUSD().then(() => {
-        // Re-render areas that show conversion (if already rendered)
         if (document.getElementById('cartList')) renderCartModal();
         if (document.getElementById('cartSection')) renderCheckoutView();
-        // homepage product price labels will be correct on next load/render
     });
 
-    // --- Hero Audio Player Logic ---
     try {
         const heroAudio = document.getElementById('heroAudio');
         const muteBtn = document.getElementById('heroAudioMuteBtn');
@@ -1081,27 +1031,21 @@ document.addEventListener('DOMContentLoaded', function () {
         console.warn('Hero audio init failed', err);
     }
 
-    // Attempt to render modal PayPal on page load too (if SDK already loaded)
     tryRenderModalPayPal({ currency: 'USD', successUrl: '/' });
 });
 
-// --- Compatibility aliases ---
-// Some templates call openCheckoutModal / closeCheckoutModal; expose aliases to keep pages working.
+// Compatibility aliases
 if (typeof window !== 'undefined') {
-    // Checkout modal aliases
     window.openCheckoutModal = window.openCheckoutModal || function () { try { showCheckoutModal(); } catch (e) { console.warn('openCheckoutModal alias failed', e); } };
     window.closeCheckoutModal = window.closeCheckoutModal || function () { try { hideCheckoutModal(); } catch (e) { console.warn('closeCheckoutModal alias failed', e); } };
 
-    // Cart modal aliases
     window.openCartModal = window.openCartModal || function () { try { showCartModal(); } catch (e) { console.warn('openCartModal alias failed', e); } };
     window.closeCartModal = window.closeCartModal || function () { try { hideCartModal(); } catch (e) { console.warn('closeCartModal alias failed', e); } };
 
-    // Additional handy exposures
     window.showCheckoutModal = window.showCheckoutModal || showCheckoutModal;
     window.hideCheckoutModal = window.hideCheckoutModal || hideCheckoutModal;
     window.showCartModal = window.showCartModal || showCartModal;
     window.hideCartModal = window.hideCartModal || hideCartModal;
     window.renderCartModal = window.renderCartModal || renderCartModal;
     window.renderCheckoutView = window.renderCheckoutView || renderCheckoutView;
-    // existing function already exposes updateCartModalQuantity and removeCheckoutItem globally where needed
 }
