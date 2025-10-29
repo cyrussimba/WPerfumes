@@ -499,22 +499,7 @@
 </head>
 
 <body>
-    <div class="announcement-container container" aria-live="polite">
-        <header class="announcement-bar" role="region" aria-label="Site announcements">
-            <div class="announcement-text-container" aria-hidden="false">
-                <ul class="announcement-list" aria-live="off" aria-hidden="false">
-                    <li>Shop Now Pay Later</li>
-                    <li>Free Delivery Above $50</li>
-                    <li>10% Discount if Cash on Delivery</li>
-                    <li>Trusted Products</li>
-                    <li>Shop With Us Now</li>
-                </ul>
-            </div>
-            <div class="city-selector" aria-hidden="false">
-                <a class="shop-locator" href="{{ url_for('main.brand') }}">Store Locator</a>
-            </div>
-        </header>
-    </div>
+    {% include 'announcements.html' %}
 
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div style="display:flex;align-items:center;gap:12px;">

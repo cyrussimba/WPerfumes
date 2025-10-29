@@ -1,19 +1,19 @@
 /**
  * static/js/announcements.js
  *
- * Robust announcements scroller that now:
- * - Uses CSS per-item animation (vertical-marquee) for the visual movement.
- * - JS scroller will NOT fight CSS animation. If CSS per-item animation is active the JS
- *   scroller will avoid applying transforms and will only provide pause/resume controls
- *   (for focus/hover/visibility/mutation lifecycle).
- *
- * This makes individual items animate on mobile just like on large screens,
- * while preserving the robust lifecycle (pause on focus/visibility) and dynamic updates.
+ * Announcement scroller (clone-first-item + interval) — deterministic, idempotent.
+ * - Each item visible for DEFAULT_DELAY (3s).
+ * - Smooth CSS transition animates between positions.
+ * - Clone-first-item pattern provides seamless wrap: when the clone is reached we
+ *   reset transform to 0 (no transition) so loop appears continuous.
+ * - Pauses on hover/focus/page hidden/offscreen. Recomputes on resize and mutation.
  */
+
 (function () {
     'use strict';
 
     const DEFAULT_DELAY = 3000;
+    const DEFAULT_TRANSITION = 'transform 0.45s cubic-bezier(.2,.9,.2,1)';
 
     function debounce(fn, wait) {
         let t;
@@ -31,67 +31,54 @@
         this.paused = false;
         this.itemHeight = 0;
         this.delay = parseInt(listEl.getAttribute('data-delay'), 10) || DEFAULT_DELAY;
-        this.visible = true;
-        this.mutationObserver = null;
-        this.intersectionObserver = null;
 
-        // If CSS per-item animation (vertical-marquee) is active we switch to "cssMode"
-        // where JS avoids translating the whole list and only controls pause/resume.
-        this.cssMode = false;
-
-        // Keep references to handlers so we can unbind
+        this._clonedNode = null;
+        this._onTransitionEnd = null;
         this._mouseenterHandler = null;
         this._mouseleaveHandler = null;
         this._onResize = null;
+        this._mutationObserver = null;
+        this._intersectionObserver = null;
         this._onVisibilityChange = null;
 
         this.init();
     }
 
-    Scroller.prototype._detectCssAnimation = function () {
-        // If there are no items, default to non-css mode
-        if (!this.items || !this.items.length) return false;
-        try {
-            const cs = window.getComputedStyle(this.items[0]);
-            const animName = (cs && (cs.getPropertyValue('animation-name') || cs.animationName)) || 'none';
-            const animDur = (cs && (cs.getPropertyValue('animation-duration') || cs.animationDuration)) || '0s';
-            // If animation-name isn't 'none' and duration > 0, assume CSS per-item animation is active
-            return animName !== 'none' && !animDur.startsWith('0');
-        } catch (e) {
-            return false;
-        }
-    };
-
     Scroller.prototype.init = function () {
-        this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
+        // Idempotent init guard
+        try {
+            if (this.listEl.dataset && this.listEl.dataset.announcementInitialized === '1') return;
+            if (this.listEl.dataset) this.listEl.dataset.announcementInitialized = '1';
+        } catch (e) { /* ignore */ }
 
-        if (!this.listEl || this.items.length < 1) {
+        this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
+        if (!this.listEl || this.items.length < 2) {
+            // Nothing to animate
             this.listEl.style.transition = '';
             this.listEl.style.transform = '';
             return;
         }
 
-        // Decide if CSS per-item animation (vertical-marquee) is active
-        this.cssMode = this._detectCssAnimation();
+        try { this.listEl.style.transition = this.listEl.style.transition || DEFAULT_TRANSITION; } catch (e) { }
 
-        // Set JS-list transition (harmless when not used)
-        this.listEl.style.transition = this.listEl.style.transition || 'transform 0.45s cubic-bezier(.2,.9,.2,1)';
-
-        // Compute initial item height for JS-based movement (if not using CSS per-item)
         this.computeItemHeight();
 
-        // Delay start slightly to allow layout & CSS animation to stabilize
-        setTimeout(() => {
-            this.start();
-        }, 120);
+        // append clone of first item for seamless wrap
+        try {
+            const first = this.items[0];
+            this._clonedNode = first.cloneNode(true);
+            this._clonedNode.setAttribute('data-ann-clone', '1');
+            this.listEl.appendChild(this._clonedNode);
+            this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
+        } catch (e) { /* ignore clone errors */ }
 
-        // Attach event handlers (we use them for both cssMode and js-mode)
+        // hover pause/resume
         this._mouseenterHandler = () => this.pause('hover');
         this._mouseleaveHandler = () => this.resume('hover');
         this.listEl.addEventListener('mouseenter', this._mouseenterHandler);
         this.listEl.addEventListener('mouseleave', this._mouseleaveHandler);
 
-        // Keyboard accessibility handlers on each item (pause when focused)
+        // focus/blur pause on each item (keyboard accessibility)
         this.items.forEach((it) => {
             if (!it.hasAttribute('tabindex')) it.setAttribute('tabindex', '0');
             const focusHandler = () => this.pause('focus');
@@ -102,35 +89,46 @@
             it.addEventListener('blur', blurHandler);
         });
 
-        // Resize handling
+        // resize handling
         this._onResize = debounce(() => {
             this.computeItemHeight();
-            // For js-mode apply transform to keep position correct
-            if (!this.cssMode) this.applyTransform();
+            this.applyTransform();
         }, 120);
         window.addEventListener('resize', this._onResize);
 
-        // Support dynamic changes: observe childList and rebind handlers when items change
+        // mutation observer — handle dynamic changes to the list
         if ('MutationObserver' in window) {
-            this.mutationObserver = new MutationObserver((mutations) => {
+            this._mutationObserver = new MutationObserver(() => {
                 setTimeout(() => {
-                    // remove previous per-item handlers
+                    // cleanup per-item handlers
                     this.items.forEach(it => {
                         try {
                             if (it.__announcement_focus_handler) it.removeEventListener('focus', it.__announcement_focus_handler);
                             if (it.__announcement_blur_handler) it.removeEventListener('blur', it.__announcement_blur_handler);
-                        } catch (e) { /* ignore */ }
+                        } catch (e) { }
                         delete it.__announcement_focus_handler;
                         delete it.__announcement_blur_handler;
                     });
 
-                    // refresh items list
+                    // rebuild items and re-add clone if needed
+                    this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
+                    // remove previous clones we might have added
+                    this.items.forEach(node => {
+                        if (node.getAttribute && node.getAttribute('data-ann-clone') === '1') {
+                            try { node.remove(); } catch (e) { }
+                        }
+                    });
+                    this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
+                    if (this.items.length > 1) {
+                        try {
+                            this._clonedNode = this.items[0].cloneNode(true);
+                            this._clonedNode.setAttribute('data-ann-clone', '1');
+                            this.listEl.appendChild(this._clonedNode);
+                        } catch (e) { }
+                    }
                     this.items = Array.from(this.listEl.children).filter(n => n.nodeType === 1);
 
-                    // re-detect cssMode (in case CSS changed or new items inserted)
-                    this.cssMode = this._detectCssAnimation();
-
-                    // attach new handlers
+                    // reattach per-item handlers
                     this.items.forEach((it) => {
                         if (!it.hasAttribute('tabindex')) it.setAttribute('tabindex', '0');
                         const focusHandler = () => this.pause('focus');
@@ -143,31 +141,52 @@
 
                     this.computeItemHeight();
                     if (this.currentIndex >= this.items.length) this.currentIndex = 0;
-                    if (!this.cssMode) this.applyTransform();
-                    if (!this.paused) this.restartInterval();
-                }, 80);
+                    this.applyTransform();
+                }, 60);
             });
-            this.mutationObserver.observe(this.listEl, { childList: true, subtree: false });
+            this._mutationObserver.observe(this.listEl, { childList: true, subtree: false });
         }
 
-        // IntersectionObserver to pause when offscreen
+        // pause when offscreen
         if ('IntersectionObserver' in window) {
-            this.intersectionObserver = new IntersectionObserver(entries => {
+            this._intersectionObserver = new IntersectionObserver(entries => {
                 entries.forEach(ent => {
-                    this.visible = ent.isIntersecting;
-                    if (!this.visible) this.pause('offscreen');
-                    else this.resume('offscreen');
+                    if (!ent) return;
+                    if (ent.isIntersecting) this.resume('offscreen');
+                    else this.pause('offscreen');
                 });
             }, { threshold: 0.01 });
-            this.intersectionObserver.observe(this.listEl);
+            this._intersectionObserver.observe(this.listEl);
         }
 
-        // Page visibility handling
+        // page visibility
         this._onVisibilityChange = () => {
             if (document.visibilityState === 'hidden') this.pause('hidden');
             else this.resume('hidden');
         };
         document.addEventListener('visibilitychange', this._onVisibilityChange);
+
+        // transitionend: detect landing on clone and reset instantly to 0
+        this._onTransitionEnd = (ev) => {
+            if (!ev || ev.propertyName !== 'transform') return;
+            const originalCount = this._clonedNode ? (this.items.length - 1) : this.items.length;
+            if (this.currentIndex === originalCount && this._clonedNode) {
+                try {
+                    const prev = this.listEl.style.transition || '';
+                    this.listEl.style.transition = 'none';
+                    this.currentIndex = 0;
+                    this.applyTransform();
+                    // force reflow
+                    // eslint-disable-next-line no-unused-expressions
+                    this.listEl.offsetHeight;
+                    this.listEl.style.transition = prev || DEFAULT_TRANSITION;
+                } catch (e) { }
+            }
+        };
+        this.listEl.addEventListener('transitionend', this._onTransitionEnd);
+
+        // small startup delay then start the interval
+        setTimeout(() => this.start(), 120);
     };
 
     Scroller.prototype.computeItemHeight = function () {
@@ -175,115 +194,96 @@
             const r = this.items[0].getBoundingClientRect();
             this.itemHeight = Math.max(1, Math.round(r.height));
         } else {
-            this.itemHeight = 30;
+            this.itemHeight = 22;
         }
     };
 
     Scroller.prototype.start = function () {
         if (this.intervalId) return;
         if (!this.items || this.items.length < 2) return;
-        // If user prefers reduced motion, do not start any auto rotation.
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-        // If CSS per-item animation is active, we don't need to translate the list;
-        // CSS handles the visual changes. JS will instead provide pause/resume only.
-        if (this.cssMode) {
-            // nothing to start (CSS runs automatically)
-            return;
+        // start deterministic interval
+        this.intervalId = setInterval(() => {
+            if (this.paused) return;
+            this.showNext();
+        }, this.delay);
+    };
+
+    Scroller.prototype.showNext = function () {
+        if (!this.items || this.items.length < 2) return;
+
+        const originalCount = this._clonedNode ? (this.items.length - 1) : this.items.length;
+
+        // advance to next index (allow landing on clone index === originalCount)
+        this.currentIndex = (this.currentIndex + 1);
+
+        this.applyTransform();
+
+        // defensive: if we exceed originalCount (rare), wrap
+        if (this.currentIndex > originalCount) {
+            this.currentIndex = 0;
+            this.applyTransform();
         }
-
-        // JS-driven auto-rotation for the whole list (fallback when CSS animation is not used)
-        this.intervalId = setInterval(() => this.showNext(), this.delay);
     };
 
-    Scroller.prototype.restartInterval = function () {
-        this.stop();
-        if (!this.paused && this.visible) this.start();
+    Scroller.prototype.applyTransform = function () {
+        if (!this.itemHeight) this.computeItemHeight();
+        const translateY = -this.currentIndex * this.itemHeight;
+        try { this.listEl.style.transform = `translateY(${translateY}px)`; } catch (e) { }
     };
 
-    Scroller.prototype.stop = function () {
+    Scroller.prototype.pause = function (reason = '') {
+        this.paused = true;
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
     };
 
-    Scroller.prototype.pause = function (reason = '') {
-        this.paused = true;
-        // Stop JS interval if running
-        this.stop();
-
-        // If CSS per-item animation is active, pause CSS animations by toggling animation-play-state
-        if (this.cssMode && this.items && this.items.length) {
-            this.items.forEach(it => {
-                try { it.style.animationPlayState = 'paused'; } catch (e) { /* ignore */ }
-            });
-        } else {
-            // For JS mode, nothing else to do (we already stopped interval). But for accessibility
-            // we may want to visually freeze the list in place: keep current transform.
-        }
-    };
-
     Scroller.prototype.resume = function (reason = '') {
+        if (!this.paused) return;
         this.paused = false;
-
-        // Resume CSS animations if in cssMode
-        if (this.cssMode && this.items && this.items.length) {
-            this.items.forEach(it => {
-                try { it.style.animationPlayState = 'running'; } catch (e) { /* ignore */ }
-            });
-        }
-
-        if (this.visible) this.restartInterval();
-    };
-
-    Scroller.prototype.showNext = function () {
-        if (!this.items || this.items.length < 2) return;
-        this.currentIndex = (this.currentIndex + 1) % this.items.length;
-        this.applyTransform();
-    };
-
-    Scroller.prototype.applyTransform = function () {
-        if (!this.itemHeight) this.computeItemHeight();
-        const translateY = -this.currentIndex * this.itemHeight;
-        this.listEl.style.transform = `translateY(${translateY}px)`;
+        this.start();
     };
 
     Scroller.prototype.destroy = function () {
-        this.stop();
         try {
-            if (this._onResize) window.removeEventListener('resize', this._onResize);
-            if (this._onVisibilityChange) document.removeEventListener('visibilitychange', this._onVisibilityChange);
-            if (this.mutationObserver) this.mutationObserver.disconnect();
-            if (this.intersectionObserver) this.intersectionObserver.disconnect();
-
+            if (this.intervalId) {
+                clearInterval(this.intervalId);
+                this.intervalId = null;
+            }
+            if (this._onTransitionEnd) this.listEl.removeEventListener('transitionend', this._onTransitionEnd);
             if (this._mouseenterHandler) this.listEl.removeEventListener('mouseenter', this._mouseenterHandler);
             if (this._mouseleaveHandler) this.listEl.removeEventListener('mouseleave', this._mouseleaveHandler);
+            if (this._onResize) window.removeEventListener('resize', this._onResize);
+            if (this._mutationObserver) this._mutationObserver.disconnect();
+            if (this._intersectionObserver) this._intersectionObserver.disconnect();
+            if (this._onVisibilityChange) document.removeEventListener('visibilitychange', this._onVisibilityChange);
 
-            // remove per-item handlers using stored references
             this.items.forEach((it) => {
                 try {
                     if (it.__announcement_focus_handler) it.removeEventListener('focus', it.__announcement_focus_handler);
                     if (it.__announcement_blur_handler) it.removeEventListener('blur', it.__announcement_blur_handler);
-                } catch (e) { /* ignore */ }
+                } catch (e) { }
                 delete it.__announcement_focus_handler;
                 delete it.__announcement_blur_handler;
             });
 
-            // clear any inline animationPlayState set by pause
-            if (this.items && this.items.length) {
-                this.items.forEach(it => { try { it.style.animationPlayState = ''; } catch (e) { /* ignore */ } });
+            if (this._clonedNode && this._clonedNode.parentNode === this.listEl) {
+                try { this._clonedNode.remove(); } catch (e) { }
             }
-        } catch (e) {
-            // ignore removal errors
-        }
+
+            try { delete this.listEl.dataset.announcementInitialized; } catch (e) { }
+        } catch (e) { }
     };
 
+    // Initialize all lists on DOMContentLoaded
     document.addEventListener('DOMContentLoaded', () => {
         const lists = Array.from(document.querySelectorAll('.announcement-list'));
         if (!lists.length) return;
 
         const scrollers = lists.map(list => new Scroller(list));
+
         try {
             Object.defineProperty(window, '__announcementScollers', {
                 value: scrollers,
@@ -291,7 +291,7 @@
                 configurable: true,
                 enumerable: false
             });
-        } catch (e) { /* non-critical */ }
+        } catch (e) { }
 
         window.addEventListener('beforeunload', () => {
             scrollers.forEach(s => s.destroy && s.destroy());

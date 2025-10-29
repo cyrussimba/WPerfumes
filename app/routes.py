@@ -1,3 +1,4 @@
+from flask import session
 from flask import Blueprint, request, jsonify, session, render_template, url_for, redirect, current_app
 from flask_mail import Message
 from datetime import datetime
@@ -895,8 +896,9 @@ def about():
     others = stories[1:] if len(stories) > 1 else []
     return render_template('content_section.html', section='About Us', latest=latest, stories=stories, others=others)
 
-
 # Favicon: return 204 to avoid browser 404 noise
+
+
 @bp.route('/favicon.ico')
 def favicon():
     return ("", 204)

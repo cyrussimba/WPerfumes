@@ -1,0 +1,68 @@
+<!-- Footer partial: templates/footer.html -->
+<!-- Note: this partial includes the footer stylesheet and footer script so the footer is self-contained.
+     Best practice is to include the stylesheet in <head> of a base template, but this file follows your request
+     to "connect footer.css and footer.js to this footer.html". -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
+
+<footer class="main-footer" style="margin-top:36px;">
+    <div class="footer-card footer-card-1">
+        <div>
+            <h3>Connect with Us</h3>
+            <div class="social-icons-row">
+                <a href="https://www.facebook.com/wperfumes" class="social-icon" aria-label="Follow us on Facebook"><i
+                        class="fab fa-facebook-f"></i></a>
+                <a href="https://www.instagram.com/wperfumes" class="social-icon" aria-label="Follow us on Instagram"><i
+                        class="fab fa-instagram"></i></a>
+                <a href="https://www.tiktok.com/@wperfumes" class="social-icon" aria-label="Follow us on TikTok"><i
+                        class="fab fa-tiktok"></i></a>
+                <a href="https://www.twitter.com/wperfumes" class="social-icon" aria-label="Follow us on Twitter"><i
+                        class="fab fa-x-twitter"></i></a>
+            </div>
+            <h3>Secure Payments</h3>
+            <div class="payment-icons-row">
+                <span class="payment-icon" aria-label="Visa Payment"><i class="fab fa-cc-visa"></i></span>
+                <span class="payment-icon" aria-label="PayPal Payment"><i class="fab fa-cc-paypal"></i></span>
+                <span class="payment-icon" aria-label="Apple Pay"><i class="fab fa-cc-apple-pay"></i></span>
+                <span class="payment-icon" aria-label="MasterCard Payment"><i class="fab fa-cc-mastercard"></i></span>
+            </div>
+        </div>
+        <p class="registration-number" id="copyright">
+            &copy; WPerfumes, Inc. All Rights Reserved.<br>
+            Company Reg. No: 12345678A
+        </p>
+    </div>
+
+    <div class="footer-card footer-card-2">
+        <h2 class="footer-logo">WPerfumes</h2>
+        <div class="footer-link-column">
+            <h4>Company</h4>
+            <a href="/about" class="footer-link">About Us</a>
+            <a href="/vision" class="footer-link">Our Vision</a>
+            <a href="/sustainability" class="footer-link">Sustainability</a>
+            <a href="/careers" class="footer-link">Careers</a>
+        </div>
+        <div class="footer-link-column">
+            <h4>Support</h4>
+            <a href="/contact" class="footer-link">Contact Us</a>
+            <a href="/faq" class="footer-link">FAQ</a>
+            <a href="/shipping-returns" class="footer-link">Shipping & Returns</a>
+            <a href="/privacy" class="footer-link">Privacy Policy</a>
+        </div>
+        <div class="footer-link-column">
+            <h4>Explore</h4>
+            <a href="/best-sellers" class="footer-link">Best Sellers</a>
+            <a href="/gift-sets" class="footer-link">Gift Sets</a>
+            <a href="/scent-finder" class="footer-link">Scent Finder Quiz</a>
+            <a href="/blog" class="footer-link">Blog & News</a>
+        </div>
+        <div class="footer-link-column">
+            <h4>Contact Info</h4>
+            <a href="mailto:support@wperfumes.com" class="footer-link">Email: support@wperfumes.com</a>
+            <a href="tel:+15551234567" class="footer-link">Phone: +1 (555) 123-4567</a>
+            <a href="/contact#address" class="footer-link">Address: 100 Scent Lane, Perfume City</a>
+        </div>
+    </div>
+</footer>
+
+<!-- footer script (keeps footer logic like dynamic year update close to the footer DOM) -->
+<script src="{{ url_for('static', filename='js/footer.js') }}"></script>

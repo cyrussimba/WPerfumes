@@ -1,6 +1,19 @@
+/* admin.js - Complete single-file admin script
+   - Full CRUD for Brands, Products, Homepage Products (brand->product selector),
+     Top Picks, Coupons, Orders
+   - Price Comparison (v3)
+   - Content admin (Quill-based)
+   - Modal helpers, notifications, utilities
+   - Defensive wiring to avoid legacy hpModal double-popup
+   Drop this file into /static/js/admin.js and hard-refresh the admin page.
+*/
+
 const API = "/api";
 const CONTENT_API = "/content-api";
 
+/* ------------------------------
+   Utility helpers
+   ------------------------------ */
 function toStaticUrl(url) {
     if (!url) return '/static/images/placeholder.jpg';
     if (typeof url !== 'string') return '/static/images/placeholder.jpg';
@@ -67,9 +80,58 @@ function adminNotify(msg, type = 'info', timeout = 2500) {
     setTimeout(() => { node.style.transition = 'opacity 400ms'; node.style.opacity = '0'; setTimeout(() => node.remove(), 410); }, timeout);
 }
 
-// ---------------------------------------------------------------------------
-// Tab wiring (including new Price Comparison tab)
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Defensive: remove legacy hpModal and rewire Add Homepage button
+   Ensures only one modal opens (the new admin.js modal).
+   ------------------------------ */
+(function protectHomepageButtonAndRemoveLegacyModal() {
+    try {
+        const legacyHp = document.getElementById('hpModalBg');
+        if (legacyHp) {
+            // remove legacy node to avoid double popup
+            legacyHp.remove();
+        }
+    } catch (err) {
+        console.warn('Failed to remove legacy hpModalBg:', err);
+    }
+
+    function rewireAddHomepageBtn() {
+        const oldBtn = document.getElementById('addHomepageBtn');
+        if (!oldBtn) return;
+        try {
+            const newBtn = oldBtn.cloneNode(true);
+            oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+            newBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+                else e.stopPropagation();
+                const legacy = document.getElementById('hpModalBg');
+                if (legacy) legacy.style.display = 'none';
+                try {
+                    if (typeof showHomepageModal === 'function') showHomepageModal(null);
+                    else {
+                        const modalBg = document.getElementById('modalBg');
+                        if (modalBg) modalBg.style.display = 'flex';
+                    }
+                } catch (openErr) {
+                    console.error('Failed to open homepage modal:', openErr);
+                }
+            }, true);
+        } catch (err) {
+            console.warn('Failed to rewire addHomepageBtn:', err);
+        }
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        rewireAddHomepageBtn();
+    } else {
+        document.addEventListener('DOMContentLoaded', rewireAddHomepageBtn);
+    }
+})();
+
+/* ------------------------------
+   Tab wiring
+   ------------------------------ */
 if (el('tabBrands')) el('tabBrands').onclick = () => switchTab('brands');
 if (el('tabProducts')) el('tabProducts').onclick = () => switchTab('products');
 if (el('tabHomepage')) el('tabHomepage').onclick = () => switchTab('homepage');
@@ -108,9 +170,9 @@ function switchTab(tab) {
     if (tab === 'priceComparison') loadPriceComparisonSettings_v3();
 }
 
-// ---------------------------------------------------------------------------
-// Login / Logout
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Login / Logout
+   ------------------------------ */
 if (el('loginForm')) {
     el('loginForm').onsubmit = async function (e) {
         e.preventDefault();
@@ -119,38 +181,26 @@ if (el('loginForm')) {
         const loginErr = el('loginError');
         if (loginErr) { loginErr.style.display = 'none'; loginErr.textContent = ''; }
         try {
-            console.info('Attempting login for', username);
             const res = await apiFetch(`${API}/auth/login`, { method: 'POST', body: { username, password } });
-            console.info('Login response status:', res.status, res.statusText);
-
             let bodyText = null, bodyJson = null;
             try {
                 bodyText = await res.text();
                 try { bodyJson = JSON.parse(bodyText); } catch (e) { bodyJson = null; }
-            } catch (e) {
-                console.warn('Failed to read response body', e);
-            }
-
+            } catch (e) { }
             if (!res.ok) {
                 const errMsg = (bodyJson && (bodyJson.error || bodyJson.detail)) ? (bodyJson.error || bodyJson.detail) : (bodyText || res.statusText);
                 if (loginErr) { loginErr.textContent = `Login failed: ${errMsg}`; loginErr.style.display = 'block'; }
                 adminNotify('Login failed: ' + errMsg, 'error');
-                console.warn('Login failed response body:', bodyText, bodyJson);
                 return;
             }
-
             let js = null;
             try { js = bodyJson || JSON.parse(bodyText || '{}'); } catch (e) { js = null; }
-
             const user = js && js.user ? js.user : { username };
             const bg = el('loginBg'); if (bg) bg.style.display = 'none';
             const userInfo = el('userInfo'); if (userInfo) userInfo.style.display = '';
             if (el('usernameInfo')) el('usernameInfo').textContent = user.username || username;
-
-            // navigate to brands tab after login
             switchTab('brands');
             adminNotify('Login successful', 'success');
-            console.info('Login successful for', username, 'server response:', js);
         } catch (err) {
             console.error('Network/login error', err);
             adminNotify('Network/login error', 'error');
@@ -165,9 +215,9 @@ if (el('logoutBtn')) {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Site Settings - Checkout discount
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Checkout Discount Setting
+   ------------------------------ */
 async function loadDiscountSetting() {
     try {
         const r = await apiFetch(`${API}/settings/checkout_discount`);
@@ -197,9 +247,9 @@ if (el('discountSettingForm')) {
     loadDiscountSetting();
 }
 
-// ---------------------------------------------------------------------------
-// Price Comparison Admin v3 (complete) - functions prefixed _pc or v3 naming
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Price Comparison v3
+   ------------------------------ */
 function createPcRow_v3(data = {}) {
     const tr = document.createElement('tr');
     const name = data.name || '';
@@ -252,7 +302,6 @@ function collectPcTable_v3() {
         const competitor_price_raw = (r.querySelector('.pc-competitor-price') || {}).value;
         const our_price = (our_price_raw !== '' && our_price_raw !== null) ? parseFloat(our_price_raw) : null;
         const competitor_price = (competitor_price_raw !== '' && competitor_price_raw !== null) ? parseFloat(competitor_price_raw) : null;
-        // require both name and product_id as admin-specified
         if (!name || !product_id) return;
         const obj = { name: name.trim(), product_id: product_id.trim() };
         if (our_price !== null && !Number.isNaN(our_price)) obj.our_price = our_price;
@@ -307,7 +356,7 @@ async function savePriceComparisonSettings_v3() {
     }
 }
 
-// Wire PC buttons
+/* Wire PC buttons */
 if (el('pcAddCompetitorBtn')) el('pcAddCompetitorBtn').addEventListener('click', (e) => {
     e.preventDefault();
     const tbody = q('#pcCompetitorsTable tbody'); if (!tbody) return;
@@ -328,9 +377,9 @@ if (el('pcResetBtn')) el('pcResetBtn').addEventListener('click', async (e) => {
     } catch (err) { console.warn(err); adminNotify('Failed to reset defaults', 'error'); }
 });
 
-// ---------------------------------------------------------------------------
-// Brands CRUD
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Brands CRUD
+   ------------------------------ */
 async function loadBrands() {
     try {
         const res = await apiFetch(`${API}/brands`);
@@ -405,9 +454,9 @@ function showBrandModal(brand) {
 }
 if (el('addBrandBtn')) el('addBrandBtn').addEventListener('click', () => showBrandModal(null));
 
-// ---------------------------------------------------------------------------
-// Products CRUD
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Products CRUD
+   ------------------------------ */
 async function loadProducts() {
     try {
         const res = await apiFetch(`${API}/products`);
@@ -449,6 +498,28 @@ async function loadProducts() {
 }
 
 if (el('addProductBtn')) el('addProductBtn').addEventListener('click', () => showProductModal(null));
+
+/* Helper: open product editor by id (prevents ReferenceError and works with single-product endpoint or list) */
+async function openProductEditorById(id) {
+    try {
+        if (!id) return;
+        // try single-product endpoint first
+        try {
+            const resSingle = await apiFetch(`${API}/products/${encodeURIComponent(id)}`);
+            if (resSingle.ok) {
+                const product = await resSingle.json().catch(() => null);
+                if (product) { showProductModal(product); return; }
+            }
+        } catch (e) { /* ignore and fall back */ }
+
+        // fallback to fetching list and find product by id
+        const res = await apiFetch(`${API}/products`);
+        if (!res.ok) return;
+        const list = await res.json();
+        const product = (list || []).find(p => String(p.id) === String(id) || String(p._id) === String(id));
+        showProductModal(product);
+    } catch (err) { console.warn('openProductEditorById error', err); }
+}
 
 function showProductModal(product) {
     apiFetch(`${API}/brands`).then(res => res.json()).then(brands => {
@@ -526,9 +597,315 @@ function showProductModal(product) {
     }).catch(err => console.warn(err));
 }
 
-// ---------------------------------------------------------------------------
-// Top Picks CRUD (full)
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Homepage Products CRUD (brand->product selection)
+   ------------------------------ */
+
+/* Helper: findProductInListById */
+function findProductInListById(list, id) {
+    if (!Array.isArray(list)) return null;
+    return list.find(p => String(p.id || p._id || '') === String(id));
+}
+
+async function loadHomepageProducts() {
+    try {
+        const res = await apiFetch(`${API}/homepage-products`);
+        const tbody = q('#homepageTable tbody'); if (!tbody) return;
+        if (!res.ok) {
+            tbody.innerHTML = '<tr><td colspan="7" style="color:#c00;padding:12px;">Unable to load homepage products.</td></tr>';
+            return;
+        }
+        const data = await res.json();
+        tbody.innerHTML = '';
+
+        let items = [];
+        if (Array.isArray(data)) items = data;
+        else if (data && typeof data === 'object') {
+            // flatten keyed object
+            if (data.items && Array.isArray(data.items)) items = data.items;
+            else {
+                Object.keys(data).forEach(k => {
+                    const arr = Array.isArray(data[k]) ? data[k] : [];
+                    arr.forEach(it => {
+                        const copy = Object.assign({}, it);
+                        copy.section = k;
+                        items.push(copy);
+                    });
+                });
+            }
+        }
+
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="7" style="color:#888;padding:12px;">No homepage entries</td></tr>';
+            return;
+        }
+
+        items.forEach(hp => {
+            const idVal = escapeHtmlAttr(hp.id || hp._id || '');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${escapeHtml(hp.section || '')}</td>
+                <td>${escapeHtml(hp.title || '')}</td>
+                <td>${escapeHtml(hp.brand || '')}</td>
+                <td>${(typeof hp.price !== 'undefined' && hp.price !== null) ? ('$' + Number(hp.price).toFixed(2)) : ''}</td>
+                <td>${escapeHtml(String(hp.sort || ''))}</td>
+                <td>${hp.visible ? 'Yes' : 'No'}</td>
+                <td class="action">
+                    <button class="btn small accent edit-homepage" data-id="${idVal}"><span class="material-icons">edit</span></button>
+                    <button class="btn small danger delete-homepage" data-id="${idVal}"><span class="material-icons">delete</span></button>
+                    <button class="btn small" data-id="${idVal}" onclick="pushHomepageProduct('${idVal}')"><span class="material-icons">publish</span></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        qa('.edit-homepage', tbody).forEach(btn => btn.addEventListener('click', e => editHomepageById(e.currentTarget.dataset.id)));
+        qa('.delete-homepage', tbody).forEach(btn => btn.addEventListener('click', async e => {
+            const id = e.currentTarget.dataset.id;
+            if (!id) return;
+            if (!confirm('Delete this homepage product?')) return;
+            try { await apiFetch(`${API}/homepage-products/${encodeURIComponent(id)}`, { method: 'DELETE' }); adminNotify('Deleted', 'success'); loadHomepageProducts(); }
+            catch (err) { console.error(err); adminNotify('Delete failed', 'error'); }
+        }));
+    } catch (err) {
+        console.warn('loadHomepageProducts error', err);
+    }
+}
+
+/* showHomepageModal - brand -> product selection behavior */
+async function showHomepageModal(hp) {
+    const modalBg = el('modalBg');
+    const modalContent = el('modalContent');
+    if (!modalBg || !modalContent) return;
+    modalBg.style.display = 'flex';
+
+    // fetch brands and products
+    let brands = [], products = [];
+    try {
+        const [bRes, pRes] = await Promise.allSettled([
+            apiFetch(`${API}/brands`),
+            apiFetch(`${API}/products`)
+        ]);
+        if (bRes.status === 'fulfilled' && bRes.value && bRes.value.ok) brands = await bRes.value.json().catch(() => []);
+        if (pRes.status === 'fulfilled' && pRes.value && pRes.value.ok) products = await pRes.value.json().catch(() => []);
+    } catch (e) {
+        console.warn('showHomepageModal fetch error', e);
+    }
+    brands = Array.isArray(brands) ? brands : [];
+    products = Array.isArray(products) ? products : [];
+
+    const currentSection = hp ? (hp.section || 'signature') : 'signature';
+    const currentProductId = hp ? (hp.product_id || hp.productId || '') : '';
+    const currentBrand = hp ? (hp.brand || '') : '';
+    const currentTitle = hp ? (hp.title || '') : '';
+    const currentPrice = (hp && typeof hp.price !== 'undefined' && hp.price !== null) ? hp.price : '';
+    const currentSort = hp && typeof hp.sort !== 'undefined' ? Number(hp.sort) : 0;
+    const currentVisible = hp ? !!hp.visible : true;
+
+    modalContent.innerHTML = `
+        <h3>${hp ? 'Edit' : 'Add'} Homepage Product</h3>
+        <form id="homepageFormModal">
+            <label>Section</label>
+            <select name="section" required>
+                <option value="signature" ${currentSection === 'signature' ? 'selected' : ''}>Our Signature Perfumes</option>
+                <option value="men" ${currentSection === 'men' ? 'selected' : ''}>Men's Brands</option>
+                <option value="women" ${currentSection === 'women' ? 'selected' : ''}>Women's Brands</option>
+                <option value="offers" ${currentSection === 'offers' ? 'selected' : ''}>Hot Offers</option>
+            </select>
+
+            <label>Brand</label>
+            <select name="brand_select" id="hp_brand_select">
+                <option value="">-- choose brand --</option>
+                ${brands.map(b => `<option value="${escapeHtmlAttr(b.name)}" ${currentBrand && currentBrand === b.name ? 'selected' : ''}>${escapeHtml(b.name)}</option>`).join('')}
+            </select>
+
+            <label>Product</label>
+            <select name="product_select" id="hp_product_select" disabled>
+                <option value="">-- choose product --</option>
+            </select>
+
+            <label>Title (auto)</label>
+            <input name="title" id="hp_title" required readonly value="${escapeHtmlAttr(currentTitle)}">
+
+            <label>Product ID (auto)</label>
+            <input name="product_id" id="hp_product_id" readonly value="${escapeHtmlAttr(currentProductId)}">
+
+            <label>Price (optional - auto-filled but editable)</label>
+            <input name="price" id="hp_price" type="number" step="0.01" min="0" value="${escapeHtmlAttr(currentPrice !== '' ? String(currentPrice) : '')}">
+
+            <label>Sort</label>
+            <input name="sort" type="number" value="${escapeHtmlAttr(String(currentSort))}">
+
+            <label>Visible</label>
+            <select name="visible">
+                <option value="true" ${currentVisible ? 'selected' : ''}>Yes</option>
+                <option value="false" ${!currentVisible ? 'selected' : ''}>No</option>
+            </select>
+
+            <div style="display:flex;gap:12px;margin-top:12px;">
+                <button type="submit" class="btn">${hp ? 'Save' : 'Add'}</button>
+                <button type="button" class="btn accent" id="hpCancel">Cancel</button>
+            </div>
+        </form>
+        <div id="hpModalHelper" style="margin-top:8px;color:#666;font-size:0.95em;">Select a brand to load products.</div>
+    `;
+
+    const brandSelect = q('#hp_brand_select', modalContent);
+    const productSelect = q('#hp_product_select', modalContent);
+    const titleInput = q('#hp_title', modalContent);
+    const productIdInput = q('#hp_product_id', modalContent);
+    const priceInput = q('#hp_price', modalContent);
+    const helperEl = q('#hpModalHelper', modalContent);
+
+    function populateProductsForBrand(brandName, preselectProductId) {
+        productSelect.innerHTML = `<option value="">-- choose product --</option>`;
+        if (!brandName) {
+            productSelect.disabled = true;
+            helperEl.textContent = 'Select a brand to load products.';
+            return;
+        }
+        const filtered = (products || []).filter(p => {
+            const pb = (p.brand || '').toString().trim().toLowerCase();
+            return pb === (brandName || '').toString().trim().toLowerCase();
+        });
+        if (!filtered.length) {
+            const loose = (products || []).filter(p => (p.brand || '').toString().toLowerCase().includes((brandName || '').toString().toLowerCase()));
+            if (loose.length) filtered.push(...loose);
+        }
+        filtered.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = String(p.id || p._id || '');
+            opt.textContent = `${p.title || p.name || ''}${p.price ? ' — ' + Number(p.price).toFixed(2) : ''}`;
+            productSelect.appendChild(opt);
+        });
+        productSelect.disabled = false;
+        helperEl.textContent = filtered.length ? `${filtered.length} product(s) loaded for "${brandName}".` : `No products found for "${brandName}".`;
+        if (preselectProductId) {
+            const matchOpt = Array.from(productSelect.options).find(o => String(o.value) === String(preselectProductId));
+            if (matchOpt) {
+                productSelect.value = String(preselectProductId);
+                productSelect.dispatchEvent(new Event('change'));
+            }
+        }
+    }
+
+    productSelect.addEventListener('change', function () {
+        const pid = productSelect.value || '';
+        if (!pid) {
+            if (!hp || !hp.title) titleInput.value = '';
+            productIdInput.value = '';
+            return;
+        }
+        const prod = findProductInListById(products, pid);
+        if (prod) {
+            titleInput.value = prod.title || prod.name || '';
+            productIdInput.value = prod.id || prod._id || '';
+            if (prod.price !== undefined && prod.price !== null) priceInput.value = prod.price;
+            const prodBrand = prod.brand || '';
+            if (prodBrand) {
+                const opt = Array.from(brandSelect.options).find(o => o.value === prodBrand);
+                if (opt) brandSelect.value = prodBrand;
+            }
+        }
+    });
+
+    brandSelect.addEventListener('change', function () {
+        const b = brandSelect.value || '';
+        populateProductsForBrand(b, null);
+    });
+
+    if (currentBrand) populateProductsForBrand(currentBrand, currentProductId);
+    else if (currentProductId) {
+        const prod = findProductInListById(products, currentProductId);
+        if (prod) {
+            const exists = Array.from(brandSelect.options).some(o => o.value === prod.brand);
+            if (!exists && prod.brand) {
+                const o = document.createElement('option'); o.value = prod.brand; o.textContent = prod.brand; brandSelect.appendChild(o);
+            }
+            brandSelect.value = prod.brand || '';
+            populateProductsForBrand(prod.brand, currentProductId);
+        }
+    }
+
+    q('#hpCancel').addEventListener('click', () => closeModal());
+
+    q('#homepageFormModal').onsubmit = async function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const fd = new FormData(form);
+        const selectedPid = (productSelect && productSelect.value) ? productSelect.value : (fd.get('product_id') || '');
+        const selectedProduct = selectedPid ? findProductInListById(products, selectedPid) : null;
+
+        const payload = {
+            section: fd.get('section'),
+            title: selectedProduct ? (selectedProduct.title || '') : (fd.get('title') || '').toString().trim(),
+            product_id: selectedProduct ? (selectedProduct.id || selectedProduct._id) : (fd.get('product_id') || undefined),
+            brand: selectedProduct ? (selectedProduct.brand || '') : (fd.get('brand_select') || ''),
+            price: (fd.get('price') !== null && fd.get('price') !== '') ? parseFloat(fd.get('price')) : undefined,
+            sort: parseInt(fd.get('sort') || '0', 10) || 0,
+            visible: (fd.get('visible') === 'true')
+        };
+
+        try {
+            let res;
+            if (hp && (hp.id || hp._id)) {
+                const id = hp.id || hp._id;
+                res = await apiFetch(`${API}/homepage-products/${encodeURIComponent(id)}`, { method: 'PUT', body: payload });
+            } else {
+                res = await apiFetch(`${API}/homepage-products`, { method: 'POST', body: payload });
+            }
+            if (!res.ok) {
+                const txt = await res.text().catch(() => res.statusText);
+                adminNotify('Save failed: ' + txt, 'error');
+            } else {
+                adminNotify('Saved', 'success');
+            }
+        } catch (err) {
+            console.error('homepage save error', err);
+            adminNotify('Save failed (network)', 'error');
+        }
+        closeModal();
+        loadHomepageProducts();
+    };
+}
+
+function editHomepageById(id) {
+    if (!id) { showHomepageModal(null); return; }
+    apiFetch(`${API}/homepage-products/${encodeURIComponent(id)}`).then(async res => {
+        if (res.ok) {
+            const item = await res.json().catch(() => null);
+            showHomepageModal(item);
+            return;
+        }
+        const listRes = await apiFetch(`${API}/homepage-products`);
+        if (!listRes.ok) { showHomepageModal(null); return; }
+        const data = await listRes.json().catch(() => []);
+        let found = null;
+        if (Array.isArray(data)) found = data.find(x => String(x.id || x._id) === String(id));
+        else if (data && typeof data === 'object') {
+            if (data.items && Array.isArray(data.items)) found = data.items.find(x => String(x.id || x._id) === String(id));
+            if (!found) {
+                Object.keys(data).forEach(k => {
+                    const arr = Array.isArray(data[k]) ? data[k] : [];
+                    arr.forEach(it => { if (!found && (String(it.id || it._id) === String(id))) found = it; });
+                });
+            }
+        }
+        showHomepageModal(found || null);
+    }).catch(err => {
+        console.warn('editHomepageById error', err);
+        showHomepageModal(null);
+    });
+}
+
+async function pushHomepageProduct(id) {
+    try { await apiFetch(`${API}/homepage-products/${encodeURIComponent(id)}/push`, { method: 'POST' }); adminNotify('Pushed to front-end', 'success'); }
+    catch (err) { console.error(err); adminNotify('Failed to push', 'error'); }
+}
+
+/* ------------------------------
+   Top Picks CRUD
+   ------------------------------ */
 async function loadTopPicks() {
     try {
         const res = await apiFetch(`${API}/top-picks`);
@@ -560,6 +937,10 @@ async function loadTopPicks() {
             catch (err) { console.error(err); adminNotify('Delete failed', 'error'); }
         }));
     } catch (err) { console.warn('loadTopPicks error', err); }
+}
+
+if (el('addTopPickBtn')) {
+    el('addTopPickBtn').addEventListener('click', (e) => { e.preventDefault(); showTopPickModal(null); });
 }
 
 function editTopPickById(id) {
@@ -620,9 +1001,9 @@ async function pushTopPick(id) {
     catch (err) { console.error(err); adminNotify('Failed to push', 'error'); }
 }
 
-// ---------------------------------------------------------------------------
-// Coupons / Promotions CRUD
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Coupons / Promotions CRUD
+   ------------------------------ */
 async function loadCoupons() {
     try {
         const res = await apiFetch(`${API}/coupons`);
@@ -712,9 +1093,9 @@ function showCouponModal(promo) {
     };
 }
 
-// ---------------------------------------------------------------------------
-// Orders CRUD
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Orders CRUD
+   ------------------------------ */
 async function loadOrders() {
     try {
         const res = await apiFetch(`${API}/orders`);
@@ -837,9 +1218,9 @@ function showOrderModal(order) {
     }).catch(err => console.warn(err));
 }
 
-// ---------------------------------------------------------------------------
-// Content Admin (Quill) - full featured
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Content Admin (Quill) - full featured
+   ------------------------------ */
 (function () {
     const storiesListEl = el('storiesList');
     const titleEl = el('title');
@@ -887,22 +1268,26 @@ function showOrderModal(order) {
     }
 
     function initQuill() {
-        quill = new Quill('#quillEditor', {
-            theme: 'snow',
-            modules: {
-                toolbar: {
-                    container: [
-                        [{ header: [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ list: 'ordered' }, { list: 'bullet' }],
-                        ['link', 'image'],
-                        ['clean']
-                    ],
-                    handlers: { image: quillImageHandler }
+        try {
+            quill = new Quill('#quillEditor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: {
+                        container: [
+                            [{ header: [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ list: 'ordered' }, { list: 'bullet' }],
+                            ['link', 'image'],
+                            ['clean']
+                        ],
+                        handlers: { image: quillImageHandler }
+                    }
                 }
-            }
-        });
-        quill.on('text-change', () => { if (bodyHiddenInput) bodyHiddenInput.value = quill.root.innerHTML; });
+            });
+            quill.on('text-change', () => { if (bodyHiddenInput) bodyHiddenInput.value = quill.root.innerHTML; });
+        } catch (err) {
+            console.warn('Quill init failed', err);
+        }
     }
 
     async function quillImageHandler() {
@@ -1071,16 +1456,17 @@ function showOrderModal(order) {
         } catch (err) { console.error(err); showError('Failed to load story for editing.'); }
     }
 
-    // init quill + stories
     initQuill();
     fetchStoriesAdmin();
 })();
 
-// ---------------------------------------------------------------------------
-// Modal helpers & init
-// ---------------------------------------------------------------------------
+/* ------------------------------
+   Modal helpers & init
+   ------------------------------ */
 function closeModal() { const mb = el('modalBg'); if (mb) mb.style.display = 'none'; }
 if (el('modalBg')) { el('modalBg').onclick = function (e) { if (e.target === this) closeModal(); }; }
 
-// start admin on brands tab
+/* Start on brands tab */
 switchTab('brands');
+
+/* End of admin.js */

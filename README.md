@@ -2,7 +2,7 @@
 
 ## Commit to GitHub
 git add -A
-git commit -m "Hide admin tab: render Admin link only for admin users"
+git commit -m "Remove Admin Tab, Automate product addition in Admin Panel"
 git push origin master
 
 
