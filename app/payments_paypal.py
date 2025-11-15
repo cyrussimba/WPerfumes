@@ -1,342 +1,574 @@
-# app/payments_paypal.py
-# Server-side PayPal integration (Sandbox / Production)
-#
-# - Reads PAYPAL_CLIENT_ID and PAYPAL_SECRET from environment variables.
-# - Uses PAYPAL_MODE (sandbox|live) if set, otherwise falls back to FLASK_ENV heuristic.
-# - Exposes routes (when the blueprint is registered under /paypal):
-#     POST /create-paypal-order   -> create an order (returns PayPal order JSON)
-#     POST /capture-paypal-order  -> capture an approved order and create internal orders
-#     POST /webhook/paypal        -> receive and optionally verify PayPal webhooks
-#     GET  /return                -> minimal client-side return page to finalize capture
-#
-# Usage: set PAYPAL_CLIENT_ID, PAYPAL_SECRET, PAYPAL_MODE (optional) and restart app.
+"""
+app/payments_paypal.py
 
+Complete PayPal integration blueprint for WPerfumes.
+
+Features:
+- /paypal/client-config         (GET)  -> returns public client id & mode
+- /paypal/create-paypal-order   (POST) -> create order server-side (returns PayPal order payload)
+- /paypal/capture-paypal-order  (POST) -> capture order server-side and persist Payment + Order
+- /paypal/return                (GET)  -> PayPal redirect handler (captures if needed and shows simple page)
+- /paypal/cancel                (GET)  -> PayPal canceled flow
+- /paypal/webhook               (POST) -> Accepts webhooks and optionally verifies signature; persists event
+
+Notes:
+- Assumes `app/models_payments.py` exists with Payment, Order, and PayPalWebhookEvent models
+  (the code is defensive if models are not available).
+- Reads PAYPAL_CLIENT_ID, PAYPAL_SECRET, PAYPAL_MODE and optional PAYPAL_WEBHOOK_ID from environment.
+- This file is intended to be registered in create_app() under the prefix "/paypal".
+"""
+from __future__ import annotations
 import os
 import time
+import logging
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Dict, Any, Optional, List
+
 import requests
-from flask import Blueprint, request, jsonify, current_app, Response
+from flask import Blueprint, current_app, jsonify, request, render_template_string
 
-# DO NOT set url_prefix here — register the blueprint with url_prefix="/paypal" in create_app.
-paypal_bp = Blueprint("paypal", __name__)
+paypal_bp = Blueprint("paypal_bp", __name__)
+logger = logging.getLogger(__name__)
 
-# Configuration via environment variables
-PAYPAL_CLIENT_ID = (os.getenv("PAYPAL_CLIENT_ID") or "").strip()
-PAYPAL_SECRET = (os.getenv("PAYPAL_SECRET") or "").strip()
-FLASK_ENV = os.getenv("FLASK_ENV", "development").lower()
-# 'sandbox' or 'live' preferred
-PAYPAL_MODE = (os.getenv("PAYPAL_MODE") or "").strip().lower()
-PAYPAL_WEBHOOK_ID = (os.getenv("PAYPAL_WEBHOOK_ID") or "").strip()
+# Server-side configuration from environment
+PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "")
+PAYPAL_SECRET = os.environ.get("PAYPAL_SECRET", "")
+PAYPAL_MODE = (os.environ.get("PAYPAL_MODE") or "sandbox").lower()
+PAYPAL_WEBHOOK_ID = os.environ.get(
+    "PAYPAL_WEBHOOK_ID", "")  # optional verification id
 
-# Determine base URL: prefer explicit PAYPAL_MODE, otherwise fallback to FLASK_ENV heuristic.
-if PAYPAL_MODE == "live":
-    PAYPAL_BASE = "https://api-m.paypal.com"
-elif PAYPAL_MODE == "sandbox":
-    PAYPAL_BASE = "https://api-m.sandbox.paypal.com"
-else:
-    PAYPAL_BASE = "https://api-m.sandbox.paypal.com" if FLASK_ENV != "production" else "https://api-m.paypal.com"
+PAYPAL_BASE = "https://api-m.sandbox.paypal.com" if PAYPAL_MODE == "sandbox" else "https://api-m.paypal.com"
 
-# Simple in-process token cache
-_token_cache = {"access_token": None, "expires_at": 0}
+# tiny in-process cache for OAuth token
+_token_cache: Dict[str, Any] = {}
 
-
-class PayPalAuthError(Exception):
-    pass
-
-
-def _log_masked(msg, *args, **kwargs):
-    try:
-        current_app.logger.debug(msg, *args, **kwargs)
-    except Exception:
-        try:
-            print(msg % args)
-        except Exception:
-            print(msg)
+# Attempt to import persistence models (defensive)
+try:
+    from .models_payments import Payment as PaymentModel, Order as PaymentsOrder, PayPalWebhookEvent  # type: ignore
+    from . import db  # type: ignore
+except Exception as e:
+    logger.debug("payments persistence models not available: %s", e)
+    PaymentModel = None
+    PaymentsOrder = None
+    PayPalWebhookEvent = None
+    db = None
 
 
-def _get_paypal_token():
-    now = time.time()
-    if _token_cache.get("access_token") and _token_cache.get("expires_at", 0) - 60 > now:
-        return _token_cache["access_token"]
+# Utilities
+def _cache_access_token(token: str, expires_in: int) -> None:
+    _token_cache["token"] = token
+    _token_cache["expires_at"] = time.time() + int(expires_in) - 30
+
+
+def _get_cached_token() -> Optional[str]:
+    t = _token_cache.get("token")
+    if not t:
+        return None
+    if time.time() >= _token_cache.get("expires_at", 0):
+        _token_cache.clear()
+        return None
+    return t
+
+
+def get_paypal_access_token() -> str:
+    """
+    Obtain OAuth2 token from PayPal; caches it in memory.
+    Raises RuntimeError on failure.
+    """
+    token = _get_cached_token()
+    if token:
+        return token
 
     if not PAYPAL_CLIENT_ID or not PAYPAL_SECRET:
-        msg = "PayPal credentials are not set (PAYPAL_CLIENT_ID/PAYPAL_SECRET)."
-        current_app.logger.error(msg)
-        raise PayPalAuthError(msg)
+        logger.error(
+            "Missing PayPal credentials (PAYPAL_CLIENT_ID/PAYPAL_SECRET)")
+        raise RuntimeError("PayPal credentials not configured on server")
 
-    auth = (PAYPAL_CLIENT_ID, PAYPAL_SECRET)
-    token_url = f"{PAYPAL_BASE}/v1/oauth2/token"
-    headers = {"Accept": "application/json"}
-    data = {"grant_type": "client_credentials"}
+    url = f"{PAYPAL_BASE}/v1/oauth2/token"
+    try:
+        r = requests.post(url, auth=(PAYPAL_CLIENT_ID, PAYPAL_SECRET), data={
+                          "grant_type": "client_credentials"}, timeout=15)
+        r.raise_for_status()
+        js = r.json()
+        token = js.get("access_token")
+        expires_in = int(js.get("expires_in", 300))
+        if not token:
+            raise RuntimeError("No access_token returned from PayPal")
+        _cache_access_token(token, expires_in)
+        return token
+    except Exception as exc:
+        logger.exception("Failed to obtain PayPal access token: %s", exc)
+        raise RuntimeError("Failed to obtain PayPal access token") from exc
+
+
+def _paypal_get(path: str, token: str) -> Dict[str, Any]:
+    url = f"{PAYPAL_BASE}{path}"
+    headers = {"Authorization": f"Bearer {token}",
+               "Content-Type": "application/json"}
+    r = requests.get(url, headers=headers, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+
+def _paypal_post(path: str, token: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    url = f"{PAYPAL_BASE}{path}"
+    headers = {"Authorization": f"Bearer {token}",
+               "Content-Type": "application/json"}
+    r = requests.post(url, headers=headers, json=payload, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
+def _currency_safe_decimal(value: str) -> Decimal:
+    d = Decimal(str(value))
+    return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _compute_items_total(items: List[Dict[str, Any]]) -> Decimal:
+    total = Decimal("0.00")
+    for it in items:
+        unit = Decimal(str(it.get("unit_price", "0") or "0"))
+        qty = Decimal(str(it.get("quantity", "1") or "1"))
+        total += (unit * qty)
+    return total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _persist_capture_idempotent(provider_order_id: str, provider_capture_id: Optional[str], capture_resp: Dict[str, Any], amount: Decimal, currency: str, payer_info: Dict[str, Any]) -> Optional[int]:
+    """
+    Persist capture into PaymentsOrder + PaymentModel idempotently.
+    Returns PaymentModel.id or None if persistence not available or failed.
+    """
+    if PaymentModel is None or PaymentsOrder is None or db is None:
+        logger.debug(
+            "Persistence disabled - skipping DB write for capture %s", provider_capture_id)
+        return None
 
     try:
-        resp = requests.post(token_url, auth=auth,
-                             headers=headers, data=data, timeout=10)
-    except requests.RequestException:
-        current_app.logger.exception(
-            "Network error when requesting PayPal token")
-        raise
+        # prevent duplicate by capture id
+        if provider_capture_id:
+            existing = PaymentModel.query.filter_by(
+                provider_capture_id=str(provider_capture_id)).first()
+            if existing:
+                logger.debug("Capture %s already persisted as payment id %s",
+                             provider_capture_id, existing.id)
+                return existing.id
 
-    # Debug: safe to log in development only
-    current_app.logger.debug(
-        "PayPal token request status=%s body=%s", resp.status_code, resp.text)
+        # create PaymentsOrder (simple)
+        order_number = f"PP-{str(provider_order_id)[:60]}"
+        pay_order = PaymentsOrder(order_number=order_number, total_amount=amount, currency=(
+            currency or "USD"), status="paid")
+        db.session.add(pay_order)
+        db.session.flush()
 
-    if resp.status_code == 401:
-        err_msg = "PayPal OAuth failed: 401 Unauthorized. Check PAYPAL_CLIENT_ID and PAYPAL_SECRET and sandbox/live consistency."
-        current_app.logger.error(err_msg + " Response: %s", resp.text)
-        raise PayPalAuthError(err_msg)
+        payer_name = payer_info.get("name")
+        payer_email = payer_info.get("email")
+        payer_id = payer_info.get("payer_id")
 
+        payment = PaymentModel(
+            order_id=pay_order.id,
+            provider="paypal",
+            provider_order_id=str(provider_order_id),
+            provider_capture_id=str(
+                provider_capture_id) if provider_capture_id else None,
+            amount=amount,
+            currency=currency or "USD",
+            status=(capture_resp.get("status") or "completed").lower(),
+            payer_name=payer_name,
+            payer_email=payer_email,
+            payer_id=payer_id,
+            raw_response=capture_resp
+        )
+        db.session.add(payment)
+        db.session.commit()
+        logger.info("Persisted payment id %s for capture %s",
+                    payment.id, provider_capture_id)
+        return payment.id
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to persist PayPal capture: %s", exc)
+        return None
+
+
+# --- Blueprint endpoints ---
+
+
+@paypal_bp.route("/client-config", methods=["GET"])
+def paypal_client_config():
+    """
+    Returns public client config used by frontend to load PayPal SDK.
+    """
     try:
-        resp.raise_for_status()
-    except requests.HTTPError:
-        current_app.logger.error(
-            "PayPal token endpoint returned error status=%s body=%s", resp.status_code, resp.text)
-        raise
-
-    js = resp.json()
-    access_token = js.get("access_token")
-    expires_in = int(js.get("expires_in", 3300))
-    if not access_token:
-        current_app.logger.error(
-            "PayPal token response missing access_token: %s", js)
-        raise PayPalAuthError("Failed to obtain PayPal access token")
-
-    _token_cache["access_token"] = access_token
-    _token_cache["expires_at"] = now + expires_in
-    current_app.logger.debug(
-        "PayPal access token retrieved and cached (expires_in=%s)", expires_in)
-    return access_token
+        mode = PAYPAL_MODE if PAYPAL_MODE in ("sandbox", "live") else "sandbox"
+        return jsonify({"client_id": PAYPAL_CLIENT_ID or "", "mode": mode, "currency": "USD"})
+    except Exception as e:
+        logger.exception("Failed to serve client-config: %s", e)
+        return jsonify({"client_id": "", "mode": "sandbox", "currency": "USD"}), 500
 
 
 @paypal_bp.route("/create-paypal-order", methods=["POST"])
 def create_paypal_order():
-    payload = request.json or {}
-    items = payload.get("items", []) or []
-    currency = (payload.get("currency") or "USD").upper()
+    """
+    Create PayPal order server-side. Body:
+      { items: [{title, unit_price, quantity, currency}, ...], currency, return_url, cancel_url, brand_name }
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    items = data.get("items") or []
+    currency = (data.get("currency") or "USD").upper()
+    return_url = data.get("return_url")
+    cancel_url = data.get("cancel_url")
+    brand_name = data.get(
+        "brand_name") or current_app.config.get("SITE_NAME", "")
 
-    total = 0.0
-    purchase_items = []
-    for it in items:
-        try:
-            price = float(it.get("unit_price") or 0)
-        except Exception:
-            price = 0.0
-        try:
+    if not isinstance(items, list) or len(items) == 0:
+        return jsonify({"error": "invalid_items", "detail": "items array required"}), 400
+
+    try:
+        total = _compute_items_total(items)
+        paypal_items = []
+        for it in items:
+            name = str(it.get("title") or it.get("name") or "")[:127]
+            unit = Decimal(str(it.get("unit_price") or it.get("price") or "0"))
             qty = int(it.get("quantity") or it.get("qty") or 1)
-        except Exception:
-            qty = 1
-        total += price * qty
-        purchase_items.append({
-            "name": (it.get("title") or it.get("name") or "Item")[:127],
-            "unit_amount": {"currency_code": currency, "value": f"{price:.2f}"},
-            "quantity": str(qty)
-        })
+            paypal_items.append({
+                "name": name,
+                "unit_amount": {"currency_code": currency, "value": f"{unit.quantize(Decimal('0.01'))}"},
+                "quantity": str(qty)
+            })
 
-    default_return = payload.get("return_url") or (
-        request.host_url.rstrip("/") + "/paypal/return")
-    default_cancel = payload.get("cancel_url") or (
-        request.host_url.rstrip("/") + "/paypal/cancel")
-
-    body = {
-        "intent": "CAPTURE",
-        "purchase_units": [{
+        purchase_unit = {
             "amount": {
                 "currency_code": currency,
-                "value": f"{total:.2f}",
-                "breakdown": {"item_total": {"currency_code": currency, "value": f"{total:.2f}"}}
+                "value": f"{total}",
+                "breakdown": {"item_total": {"currency_code": currency, "value": f"{total}"}}
             },
-            "items": purchase_items
-        }],
-        "application_context": {
-            "brand_name": payload.get("brand_name", "Your Store"),
-            "landing_page": "NO_PREFERENCE",
-            "user_action": "PAY_NOW",
-            "return_url": default_return,
-            "cancel_url": default_cancel
+            "items": paypal_items
         }
-    }
 
-    try:
-        token = _get_paypal_token()
-    except PayPalAuthError as e:
-        _token_cache["access_token"] = None
-        current_app.logger.error(
-            "PayPal auth error while creating order: %s", str(e))
-        return jsonify({"error": "PayPal authentication failed", "detail": str(e)}), 400
-    except Exception as e:
-        current_app.logger.exception("Unexpected error obtaining PayPal token")
-        return jsonify({"error": "Failed to obtain PayPal token", "detail": str(e)}), 400
+        order_payload = {
+            "intent": "CAPTURE",
+            "purchase_units": [purchase_unit],
+            "application_context": {"brand_name": brand_name, "landing_page": "NO_PREFERENCE", "user_action": "PAY_NOW"}
+        }
+        if return_url:
+            order_payload["application_context"]["return_url"] = return_url
+        if cancel_url:
+            order_payload["application_context"]["cancel_url"] = cancel_url
 
-    headers = {"Authorization": f"Bearer {token}",
-               "Content-Type": "application/json"}
-    orders_url = f"{PAYPAL_BASE}/v2/checkout/orders"
-
-    try:
-        r = requests.post(orders_url, json=body, headers=headers, timeout=15)
-    except requests.RequestException as e:
-        current_app.logger.exception(
-            "Network error when creating PayPal order")
-        return jsonify({"error": "Network error contacting PayPal", "detail": str(e)}), 400
-
-    current_app.logger.debug(
-        "PayPal create order status=%s body=%s", r.status_code, r.text)
-
-    if not r.ok:
+        token = get_paypal_access_token()
+        resp = _paypal_post("/v2/checkout/orders", token, order_payload)
+        return jsonify(resp)
+    except requests.HTTPError as he:
+        logger.exception("PayPal create order HTTP error: %s", he)
         try:
-            detail = r.json()
+            return jsonify({"error": "paypal_create_failed", "detail": str(he), "response": he.response.json()}), 502
         except Exception:
-            detail = r.text
-        current_app.logger.error(
-            "PayPal create order failed: status=%s detail=%s", r.status_code, detail)
-        return jsonify({"error": "Failed to create PayPal order", "status": r.status_code, "detail": detail}), 400
-
-    try:
-        return jsonify(r.json())
+            return jsonify({"error": "paypal_create_failed", "detail": str(he)}), 502
     except Exception as e:
-        current_app.logger.exception(
-            "Failed to parse PayPal create order response JSON")
-        return jsonify({"error": "Invalid response from PayPal", "detail": str(e)}), 500
+        logger.exception("Unexpected create_paypal_order error: %s", e)
+        return jsonify({"error": "create_failed", "detail": str(e)}), 500
 
 
 @paypal_bp.route("/capture-paypal-order", methods=["POST"])
 def capture_paypal_order():
-    body = request.json or {}
-    order_id = body.get("orderID") or body.get("token") or body.get("orderId")
+    """
+    Capture PayPal order server-side and persist payment record.
+    Body: { orderID: "ORDERID", items: [...] }  (items optional)
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    order_id = data.get("orderID") or data.get(
+        "order_id") or data.get("orderId")
+    items = data.get("items") or []
+
     if not order_id:
-        return jsonify({"error": "orderID is required"}), 400
+        return jsonify({"error": "missing_order_id", "detail": "orderID required"}), 400
 
     try:
-        token = _get_paypal_token()
-    except PayPalAuthError as e:
-        _token_cache["access_token"] = None
-        current_app.logger.error(
-            "PayPal auth error during capture: %s", str(e))
-        return jsonify({"error": "PayPal authentication failed", "detail": str(e)}), 400
+        token = get_paypal_access_token()
     except Exception as e:
-        current_app.logger.exception(
-            "Unexpected error obtaining PayPal token during capture")
-        return jsonify({"error": "Failed to obtain PayPal token", "detail": str(e)}), 400
+        logger.exception("Auth failure getting PayPal token: %s", e)
+        return jsonify({"error": "auth_failed", "detail": str(e)}), 500
 
-    headers = {"Authorization": f"Bearer {token}",
-               "Content-Type": "application/json"}
-    capture_url = f"{PAYPAL_BASE}/v2/checkout/orders/{order_id}/capture"
-
+    # Fetch order
     try:
-        r = requests.post(capture_url, headers=headers, timeout=15)
-    except requests.RequestException as e:
-        current_app.logger.exception(
-            "Network error when capturing PayPal order")
-        return jsonify({"error": "Network error contacting PayPal", "detail": str(e)}), 400
+        order = _paypal_get(f"/v2/checkout/orders/{order_id}", token)
+    except requests.HTTPError as he:
+        logger.exception("Failed to fetch PayPal order %s: %s", order_id, he)
+        return jsonify({"error": "order_fetch_failed", "detail": str(he)}), 502
+    except Exception as e:
+        logger.exception(
+            "Unexpected error fetching PayPal order %s: %s", order_id, e)
+        return jsonify({"error": "order_fetch_failed", "detail": str(e)}), 500
 
-    current_app.logger.debug(
-        "PayPal capture status=%s body=%s", r.status_code, r.text)
+    # Parse amount
+    try:
+        pus = order.get("purchase_units") or []
+        if not pus:
+            return jsonify({"error": "invalid_order", "detail": "no purchase_units"}), 400
+        pu0 = pus[0]
+        amount_obj = pu0.get("amount") or {}
+        paypal_currency = (amount_obj.get("currency_code") or "USD").upper()
+        paypal_value = _currency_safe_decimal(
+            str(amount_obj.get("value") or "0"))
+    except Exception as e:
+        logger.exception("Failed to parse PayPal order %s: %s", order_id, e)
+        return jsonify({"error": "invalid_order_data", "detail": str(e)}), 500
 
-    if not r.ok:
+    # Optional client validation of items -> totals
+    if items and isinstance(items, list):
         try:
-            detail = r.json()
+            client_total = _compute_items_total(items)
+            if client_total != paypal_value:
+                logger.warning("Amount mismatch: client %s != paypal %s for %s",
+                               client_total, paypal_value, order_id)
+                return jsonify({"error": "amount_mismatch", "detail": "client total != paypal total", "client_total": str(client_total), "paypal_total": str(paypal_value)}), 400
+        except Exception as e:
+            logger.exception("Failed computing client items total: %s", e)
+            return jsonify({"error": "total_compute_failed", "detail": str(e)}), 400
+
+    # Check if already-captured
+    try:
+        payments_section = pu0.get("payments", {}) or {}
+        captures = payments_section.get(
+            "captures", []) if payments_section else []
+        for c in captures:
+            if (c.get("status") or "").upper() == "COMPLETED":
+                capture_id = c.get("id")
+                if PaymentModel is not None:
+                    existing = PaymentModel.query.filter_by(
+                        provider_capture_id=str(capture_id)).first()
+                    if existing:
+                        return jsonify({"status": "already_captured", "order_id": order_id, "capture_id": capture_id, "payment_id": existing.id, "paypal_order": order})
+                break
+    except Exception:
+        logger.debug(
+            "Error checking captures for existing completed status; continuing.")
+
+    # Perform capture now
+    try:
+        capture_resp = _paypal_post(
+            f"/v2/checkout/orders/{order_id}/capture", token, {})
+    except requests.HTTPError as he:
+        logger.exception("PayPal capture HTTP error for %s: %s", order_id, he)
+        resp_body = None
+        try:
+            resp_body = he.response.json()
         except Exception:
-            detail = r.text
-        current_app.logger.error("PayPal capture failed: %s", detail)
-        return jsonify({"error": "Capture failed", "status": r.status_code, "detail": detail}), 400
+            resp_body = {"detail": str(he)}
+        return jsonify({"error": "capture_failed", "detail": str(he), "response": resp_body}), 502
+    except Exception as e:
+        logger.exception("Unexpected capture error for %s: %s", order_id, e)
+        return jsonify({"error": "capture_failed", "detail": str(e)}), 500
 
-    capture_js = r.json()
+    # Extract capture info (first capture)
+    try:
+        pu_after = capture_resp.get("purchase_units", []) or []
+        pu0_after = pu_after[0] if pu_after else pu0
+        payments_info = pu0_after.get("payments", {}) or {}
+        captures_after = payments_info.get(
+            "captures", []) if payments_info else []
+        capture_info = captures_after[0] if captures_after else None
 
-    captures = []
-    completed = False
-    for pu in capture_js.get("purchase_units", []):
-        payments = pu.get("payments", {})
-        for c in payments.get("captures", []):
-            captures.append(c)
-            if c.get("status") == "COMPLETED":
-                completed = True
+        provider_order_id = capture_resp.get("id") or order_id
+        provider_capture_id = capture_info.get(
+            "id") if isinstance(capture_info, dict) else None
+        capture_status = capture_info.get(
+            "status") if isinstance(capture_info, dict) else None
 
-    if not captures:
-        current_app.logger.warning(
-            "No captures found in PayPal response for order %s", order_id)
+        # amount from capture if present
+        amt_obj = (capture_info.get("amount") if isinstance(
+            capture_info, dict) else None) or amount_obj
+        amount_value = amt_obj.get("value") if amt_obj else None
+        currency_code = (amt_obj.get("currency_code") if amt_obj and amt_obj.get(
+            "currency_code") else paypal_currency).upper()
 
-    if not completed:
-        return jsonify({"error": "Capture not completed", "capture": capture_js}), 400
+        # Normalize amount decimal
+        amount_decimal = _currency_safe_decimal(
+            str(amount_value or paypal_value or "0"))
+    except Exception as e:
+        logger.exception(
+            "Failed to parse capture response for %s: %s", order_id, e)
+        return jsonify({"status": "captured", "order_id": order_id, "capture_response": capture_resp})
 
-    # Create internal orders (best-effort): POST to internal /api/orders endpoint
-    created = []
-    failed = []
-    items = body.get("items", [])
-    customer = body.get("customer", {}) or {}
-    promo_code = body.get("promo_code")
-    the_date = body.get("date") or time.strftime("%Y-%m-%d %H:%M:%S")
-    api_base = request.host_url.rstrip("/") + "/api"
+    # Extract payer info
+    try:
+        payer = capture_resp.get("payer", {}) or {}
+        payer_email = payer.get("email_address") or payer.get("email")
+        payer_id = payer.get("payer_id") or payer.get(
+            "payerID") or payer.get("payerId")
+        name_obj = payer.get("name") or {}
+        payer_name = None
+        if isinstance(name_obj, dict):
+            payer_name = " ".join(
+                filter(None, [name_obj.get("given_name"), name_obj.get("surname")])).strip()
+    except Exception:
+        payer_name = None
+        payer_email = None
+        payer_id = None
 
-    # TODO: Add server-side verification of amounts / idempotency check here
-    for item in items:
-        order_payload = {
-            "customer_name": customer.get("name") or customer.get("customer_name") or "",
-            "customer_email": customer.get("email") or "",
-            "customer_phone": customer.get("phone") or "",
-            "customer_address": customer.get("address") or "",
-            "product_id": item.get("id") or item.get("product_id") or "",
-            "product_title": item.get("title") or item.get("name") or "",
-            "quantity": int(item.get("quantity") or item.get("qty") or 1),
-            "status": "Paid",
-            "payment_method": "PayPal",
-            "date": the_date,
-            "payment_reference": captures[0].get("id") if captures else order_id
-        }
-        if promo_code:
-            order_payload["promo_code"] = promo_code
-        try:
-            resp = requests.post(f"{api_base}/orders",
-                                 json=order_payload, timeout=10)
-            if resp.ok:
-                created.append(order_payload)
-            else:
-                failed.append({"payload": order_payload,
-                              "status": resp.status_code, "text": resp.text})
-        except Exception as e:
-            current_app.logger.exception("Failed to POST /api/orders")
-            failed.append({"payload": order_payload, "error": str(e)})
+    payer_info = {"name": payer_name,
+                  "email": payer_email, "payer_id": payer_id}
 
-    return jsonify({"capture": capture_js, "orders_created": len(created), "orders_failed": failed})
+    # Persist idempotently
+    payment_id = _persist_capture_idempotent(
+        provider_order_id, provider_capture_id, capture_resp, amount_decimal, currency_code, payer_info)
 
-
-@paypal_bp.route("/webhook/paypal", methods=["POST"])
-def paypal_webhook():
-    data = request.json or {}
-    headers = {k.lower(): v for k, v in request.headers.items()}
-
-    if PAYPAL_WEBHOOK_ID:
-        try:
-            token = _get_paypal_token()
-            verify_body = {
-                "auth_algo": headers.get("paypal-auth-algo"),
-                "cert_url": headers.get("paypal-cert-url"),
-                "transmission_id": headers.get("paypal-transmission-id"),
-                "transmission_sig": headers.get("paypal-transmission-sig"),
-                "transmission_time": headers.get("paypal-transmission-time"),
-                "webhook_id": PAYPAL_WEBHOOK_ID,
-                "webhook_event": data
-            }
-            verify_resp = requests.post(
-                f"{PAYPAL_BASE}/v1/notifications/verify-webhook-signature",
-                headers={"Authorization": f"Bearer {token}",
-                         "Content-Type": "application/json"},
-                json=verify_body, timeout=10
-            )
-            verify_resp.raise_for_status()
-            res_js = verify_resp.json()
-            if res_js.get("verification_status") != "SUCCESS":
-                current_app.logger.warning(
-                    "PayPal webhook verification failed: %s", res_js)
-                return jsonify({"error": "webhook verification failed", "detail": res_js}), 400
-        except Exception as e:
-            current_app.logger.exception("PayPal webhook verification error")
-            return jsonify({"error": "verification error", "detail": str(e)}), 400
-
-    event_type = data.get("event_type")
-    current_app.logger.info("PayPal webhook event received: %s", event_type)
-    # TODO: persist webhook events for reconciliation
-    return jsonify({"status": "ok"}), 200
+    return jsonify({"status": "captured", "order_id": order_id, "capture_id": provider_capture_id, "payment_id": payment_id, "capture_response": capture_resp})
 
 
 @paypal_bp.route("/return", methods=["GET"])
-def paypal_return_page():
-    html = """<!doctype html>..."""  # unchanged HTML omitted for brevity (use your existing return page)
-    return Response(html, mimetype="text/html")
+def paypal_return():
+    """
+    Browser return URL for PayPal approval flow.
+    """
+    order_token = request.args.get("token") or request.args.get("orderID")
+    if not order_token:
+        logger.warning("PayPal return without token: %s", request.query_string)
+        return render_template_string("<h2>Payment return error</h2><p>Missing order token.</p><p><a href='/'>Return to shop</a></p>"), 400
+
+    try:
+        token = get_paypal_access_token()
+    except Exception as e:
+        logger.exception("Failed to get PayPal token on /paypal/return: %s", e)
+        return render_template_string("<h2>Payment error</h2><p>Unable to process return right now.</p><p><a href='/'>Return to shop</a></p>"), 500
+
+    # Fetch order
+    try:
+        order = _paypal_get(f"/v2/checkout/orders/{order_token}", token)
+    except Exception as e:
+        logger.exception("Failed to fetch PayPal order on return: %s", e)
+        return render_template_string("<h2>Payment error</h2><p>Unable to fetch PayPal order.</p><p><a href='/'>Return to shop</a></p>"), 502
+
+    # If already captured - show success
+    try:
+        pus = order.get("purchase_units") or []
+        pu0 = pus[0] if pus else {}
+        payments = pu0.get("payments", {}) or {}
+        captures = payments.get("captures", []) if payments else []
+        for c in captures:
+            if (c.get("status") or "").upper() == "COMPLETED":
+                capture_id = c.get("id")
+                return render_template_string("""
+                    <h2>Payment Successful</h2>
+                    <p>Your payment was completed (capture id: {{ cid }}).</p>
+                    <p><a href="/">Continue shopping</a></p>
+                """, cid=capture_id)
+    except Exception:
+        pass
+
+    # Attempt server-side capture
+    try:
+        capture_resp = _paypal_post(
+            f"/v2/checkout/orders/{order_token}/capture", token, {})
+    except requests.HTTPError as he:
+        logger.exception(
+            "Capture failed on /paypal/return for %s: %s", order_token, he)
+        try:
+            body = he.response.json()
+        except Exception:
+            body = {"detail": str(he)}
+        return render_template_string("<h2>Payment capture failed</h2><pre>{{ detail }}</pre><p><a href='/'>Return to shop</a></p>", detail=body), 502
+    except Exception as e:
+        logger.exception("Unexpected capture error on return: %s", e)
+        return render_template_string("<h2>Payment capture error</h2><p>Unexpected error. Contact support.</p><p><a href='/'>Return to shop</a></p>"), 500
+
+    # Persist capture (best-effort)
+    try:
+        pu_after = capture_resp.get("purchase_units", []) or []
+        pu0_after = pu_after[0] if pu_after else {}
+        payments_info = pu0_after.get("payments", {}) or {}
+        captures_after = payments_info.get(
+            "captures", []) if payments_info else []
+        capture_info = captures_after[0] if captures_after else None
+        provider_order_id = capture_resp.get("id") or order_token
+        provider_capture_id = capture_info.get(
+            "id") if isinstance(capture_info, dict) else None
+        amt_obj = (capture_info.get("amount") if isinstance(
+            capture_info, dict) else None) or (pu0_after.get("amount") or {})
+        amount_value = amt_obj.get("value") or "0.00"
+        currency_code = (amt_obj.get("currency_code") or "USD").upper()
+        amount_decimal = _currency_safe_decimal(str(amount_value))
+        payer = capture_resp.get("payer", {}) or {}
+        payer_info = {"name": None, "email": payer.get("email_address") or payer.get(
+            "email"), "payer_id": payer.get("payer_id")}
+        payment_id = _persist_capture_idempotent(
+            provider_order_id, provider_capture_id, capture_resp, amount_decimal, currency_code, payer_info)
+    except Exception:
+        payment_id = None
+
+    # Render success page
+    try:
+        capture_id = provider_capture_id
+    except Exception:
+        capture_id = None
+
+    return render_template_string("""
+        <h2>Payment Successful</h2>
+        <p>Your payment was completed successfully. Order id: <strong>{{ order_id }}</strong></p>
+        {% if cid %}<p>Capture id: <strong>{{ cid }}</strong></p>{% endif %}
+        {% if pid %}<p>Recorded payment id: <strong>{{ pid }}</strong></p>{% endif %}
+        <p><a href="/">Continue shopping</a></p>
+    """, order_id=order_token, cid=capture_id, pid=payment_id)
+
+
+@paypal_bp.route("/cancel", methods=["GET"])
+def paypal_cancel():
+    return render_template_string("""
+        <h2>Payment Cancelled</h2>
+        <p>You cancelled the PayPal payment. Your order was not completed.</p>
+        <p><a href="/">Return to shop</a></p>
+    """), 200
+
+
+@paypal_bp.route("/webhook", methods=["POST"])
+def paypal_webhook():
+    """
+    Receive PayPal webhook events. If PAYPAL_WEBHOOK_ID is configured, attempt verification.
+    Persist event into PayPalWebhookEvent model if available.
+    """
+    event_body = request.get_json(force=True, silent=True) or {}
+    headers = dict(request.headers)
+
+    logger.info("Received PayPal webhook event_type=%s id=%s",
+                event_body.get("event_type"), event_body.get("id"))
+
+    # Optional verification
+    if PAYPAL_WEBHOOK_ID:
+        try:
+            token = get_paypal_access_token()
+            verify_payload = {
+                "transmission_id": headers.get("Paypal-Transmission-Id"),
+                "transmission_time": headers.get("Paypal-Transmission-Time"),
+                "cert_url": headers.get("Paypal-Cert-Url"),
+                "auth_algo": headers.get("Paypal-Auth-Algo"),
+                "transmission_sig": headers.get("Paypal-Transmission-Sig"),
+                "webhook_id": PAYPAL_WEBHOOK_ID,
+                "webhook_event": event_body
+            }
+            verify = _paypal_post(
+                "/v1/notifications/verify-webhook-signature", token, verify_payload)
+            if verify.get("verification_status") != "SUCCESS":
+                logger.warning("Webhook verification failed: %s", verify)
+                return jsonify({"error": "verification_failed", "details": verify}), 400
+        except Exception as e:
+            logger.exception("Webhook verification error: %s", e)
+            return jsonify({"error": "webhook_verification_error", "detail": str(e)}), 500
+
+    # Persist webhook event if model available
+    if PayPalWebhookEvent is not None and db is not None:
+        try:
+            ev = PayPalWebhookEvent(event_id=event_body.get("id") or "", event_type=event_body.get(
+                "event_type"), raw_event=event_body, headers=headers)
+            db.session.add(ev)
+            db.session.commit()
+            logger.debug("Persisted PayPal webhook id=%s", ev.event_id)
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            logger.exception("Failed to persist PayPal webhook: %s", e)
+
+    return jsonify({"status": "accepted"}), 200

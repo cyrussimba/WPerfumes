@@ -5,7 +5,7 @@ git add -A
 git commit -m "Remove Admin Tab, Automate product addition in Admin Panel"
 git push origin master
 
-
+## 1 Paypal Auth
 ##  chmod +x ./run-local.sh
 ## ./run-local.sh
 AfTRhyp1ftl9u6Cy6Tz6HT8bLlnH3YKaoLgLkw6xLAJkEtOz-dCKVzmyVqwVHZ2uCU6Jrm6zV3L8C06f

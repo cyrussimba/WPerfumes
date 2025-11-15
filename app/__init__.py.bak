@@ -244,16 +244,6 @@ def create_app(test_config=None) -> Flask:
     except Exception:
         app.logger.debug("Unable to set PayPal Jinja globals")
 
-    # Register Payments Admin (restricted panel)
-    # This is intentionally kept separate from the regular admin UI.
-    try:
-        from .routes_payments_admin import bp as payments_admin_bp
-        # blueprint defines url_prefix="/payments-admin" so register the blueprint as-is
-        app.register_blueprint(payments_admin_bp)
-        app.logger.debug("Registered payments-admin blueprint at /payments-admin")
-    except Exception as e:
-        app.logger.exception("Failed to register payments-admin blueprint: %s", e)
-
     # Expose a runtime snapshot of registered routes to the log for debugging
     with app.app_context():
         app.logger.debug("Database configured at: %s",
