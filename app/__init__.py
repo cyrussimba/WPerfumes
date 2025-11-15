@@ -213,15 +213,46 @@ def create_app(test_config=None) -> Flask:
         # Not critical if missing; page simply won't exist.
         app.logger.debug(f"Failed to register price comparison blueprint: {e}")
 
-    # Register PayPal payments blueprint if available
+    # Register PayPal payments blueprint if available.
+    # Be defensive about adding prefixes: some blueprints may already set their own url_prefix.
     try:
         from .payments_paypal import paypal_bp
-        # Register under the /paypal prefix so routes like /paypal/return and /paypal/create-paypal-order exist
-        app.register_blueprint(paypal_bp, url_prefix="/paypal")
-        app.logger.debug(
-            "Registered PayPal payments blueprint (paypal_bp) with prefix /paypal")
+        bp_prefix = getattr(paypal_bp, "url_prefix", None)
+        if bp_prefix:
+            # blueprint already defines a prefix; register without adding another prefix
+            app.register_blueprint(paypal_bp)
+            app.logger.debug(
+                f"Registered PayPal payments blueprint (paypal_bp) with inherent prefix {bp_prefix}")
+        else:
+            # blueprint defines no prefix, add the conventional "/paypal" prefix
+            app.register_blueprint(paypal_bp, url_prefix="/paypal")
+            app.logger.debug(
+                "Registered PayPal payments blueprint (paypal_bp) with prefix /paypal")
     except Exception as e:
         app.logger.debug(f"Failed to register PayPal blueprint: {e}")
+
+    # --- PayPal template globals (optional) ---
+    # Expose only NON-SECRET public configuration to templates so templates can
+    # render the PayPal SDK script tag if desired: <script src="https://www.paypal.com/sdk/js?client-id={{ PAYPAL_CLIENT_ID }}...">
+    try:
+        app.jinja_env.globals['PAYPAL_CLIENT_ID'] = os.environ.get(
+            "PAYPAL_CLIENT_ID", "")
+        app.jinja_env.globals['PAYPAL_MODE'] = (
+            os.environ.get("PAYPAL_MODE") or "sandbox").lower()
+        app.jinja_env.globals['PAYPAL_CURRENCY'] = os.environ.get(
+            "PAYPAL_CURRENCY", "USD")
+    except Exception:
+        app.logger.debug("Unable to set PayPal Jinja globals")
+
+    # Register Payments Admin (restricted panel)
+    # This is intentionally kept separate from the regular admin UI.
+    try:
+        from .routes_payments_admin import bp as payments_admin_bp
+        # blueprint defines url_prefix="/payments-admin" so register the blueprint as-is
+        app.register_blueprint(payments_admin_bp)
+        app.logger.debug("Registered payments-admin blueprint at /payments-admin")
+    except Exception as e:
+        app.logger.exception("Failed to register payments-admin blueprint: %s", e)
 
     # Expose a runtime snapshot of registered routes to the log for debugging
     with app.app_context():
