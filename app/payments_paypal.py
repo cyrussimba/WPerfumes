@@ -1,22 +1,19 @@
-"""
-app/payments_paypal.py
+# Updated payments_paypal.py
+# - Added defensive environment sanitization to detect when multiple env assignments
+#   were accidentally pasted into a single variable (common on Render UI mistakes).
+# - If PAYPAL_CLIENT_ID (or other key) contains tokens like "PAYPAL_SECRET=..." we
+#   will split and re-inject them into os.environ (best-effort) and log a masked
+#   warning so admins can fix the Render settings properly.
+#
+# This change helps deployments where someone accidentally put multiple KEY=VALUE
+# entries into the value field of a single Render environment variable (e.g.
+# PAYPAL_CLIENT_ID = "OUR_CLIENT_ID PAYPAL_SECRET=XYZ PAYPAL_MODE=sandbox ...").
+#
+# IMPORTANT: This is a defensive convenience. You should still fix the Render
+# dashboard to set each environment variable as a separate entry.
+#
+# The remainder of the file is unchanged except for the sanitization and clearer logs.
 
-Complete PayPal integration blueprint for WPerfumes.
-
-Features:
-- /paypal/client-config         (GET)  -> returns public client id & mode
-- /paypal/create-paypal-order   (POST) -> create order server-side (returns PayPal order payload)
-- /paypal/capture-paypal-order  (POST) -> capture order server-side and persist Payment + Order
-- /paypal/return                (GET)  -> PayPal redirect handler (captures if needed and shows simple page)
-- /paypal/cancel                (GET)  -> PayPal canceled flow
-- /paypal/webhook               (POST) -> Accepts webhooks and optionally verifies signature; persists event
-
-Notes:
-- Assumes `app/models_payments.py` exists with Payment, Order, and PayPalWebhookEvent models
-  (the code is defensive if models are not available).
-- Reads PAYPAL_CLIENT_ID, PAYPAL_SECRET, PAYPAL_MODE and optional PAYPAL_WEBHOOK_ID from environment.
-- This file is intended to be registered in create_app() under the prefix "/paypal".
-"""
 from __future__ import annotations
 import os
 import time
@@ -29,6 +26,89 @@ from flask import Blueprint, current_app, jsonify, request, render_template_stri
 
 paypal_bp = Blueprint("paypal_bp", __name__)
 logger = logging.getLogger(__name__)
+
+# Defensive helper: detect and repair concatenated env var values
+
+
+def _sanitize_concatenated_env_vars():
+    """
+    Some hosting UIs (or user copy/paste) accidentally set many KEY=VALUE pairs into
+    a single environment variable value. For example, PAYPAL_CLIENT_ID might be set to:
+      "OUR_CLIENT_ID PAYPAL_SECRET=xyz PAYPAL_MODE=sandbox SECRET_KEY=..."
+    This helper will try to detect that pattern and re-split tokens into os.environ.
+    It attempts to be conservative and will not overwrite already-correct values.
+    """
+    try:
+        suspect_keys = ["PAYPAL_CLIENT_ID", "PAYPAL_SECRET",
+                        "PAYPAL_MODE", "PAYPAL_WEBHOOK_ID", "SECRET_KEY"]
+        # Only run corrective logic if we see a suspicious pattern in PAYPAL_CLIENT_ID
+        raw = os.environ.get("PAYPAL_CLIENT_ID", "")
+        if not raw:
+            return
+        # Detect pattern: there is at least one substring like "SOMETHING=" inside the value
+        if ("=" not in raw) or (raw.strip().count("=") == 0):
+            return
+        # It's likely a concatenated blob; split tokens by whitespace
+        tokens = [t for t in raw.strip().split() if t]
+        # If the first token looks like KEY=VAL, then it's probably entirely KEY=VALUE pairs.
+        # Otherwise, treat first token as client id (if it doesn't contain '=').
+        changed = False
+        # if first token has no '=' and more tokens include KEY=, set PAYPAL_CLIENT_ID to that first token
+        first = tokens[0] if tokens else ""
+        if "=" in first:
+            # all tokens look like KEY=VALUE; set them into os.environ if absent
+            for tok in tokens:
+                if "=" not in tok:
+                    continue
+                k, v = tok.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                if not k:
+                    continue
+                if os.environ.get(k) != v:
+                    # do not overwrite existing explicit env var, but set if missing
+                    if k not in os.environ or os.environ.get(k) == raw:
+                        os.environ[k] = v
+                        changed = True
+        else:
+            # first token is likely the real client id; remaining tokens may be KEY=VALUE pairs
+            if os.environ.get("PAYPAL_CLIENT_ID") != first:
+                os.environ["PAYPAL_CLIENT_ID"] = first
+                changed = True
+            for tok in tokens[1:]:
+                if "=" not in tok:
+                    continue
+                k, v = tok.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                if not k:
+                    continue
+                # set if missing or if current value equals the original raw blob (avoid clobbering)
+                if os.environ.get(k) != v:
+                    if k not in os.environ or os.environ.get(k) == raw:
+                        os.environ[k] = v
+                        changed = True
+        if changed:
+            # Log a masked warning so operator can notice and fix Render env var config
+            masked_secret = os.environ.get("PAYPAL_SECRET", "«missing»")
+            if masked_secret and len(masked_secret) > 6:
+                masked = masked_secret[:3] + "..." + masked_secret[-3:]
+            else:
+                masked = masked_secret
+            logger.warning(
+                "Detected concatenated env var in PAYPAL_CLIENT_ID and auto-split tokens into os.environ. "
+                "Please set each environment variable separately in your host dashboard (Render). "
+                "Current PAYPAL_CLIENT_ID=%s PAYPAL_SECRET=%s PAYPAL_MODE=%s",
+                os.environ.get("PAYPAL_CLIENT_ID", "«missing»"),
+                masked,
+                os.environ.get("PAYPAL_MODE", "«missing»")
+            )
+    except Exception as exc:
+        logger.debug("Environment sanitization helper failed: %s", exc)
+
+
+# Run sanitization early (before reading other PAYPAL_* env vars)
+_sanitize_concatenated_env_vars()
 
 # Server-side configuration from environment
 PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "")
@@ -81,7 +161,9 @@ def get_paypal_access_token() -> str:
 
     if not PAYPAL_CLIENT_ID or not PAYPAL_SECRET:
         logger.error(
-            "Missing PayPal credentials (PAYPAL_CLIENT_ID/PAYPAL_SECRET)")
+            "Missing PayPal credentials (PAYPAL_CLIENT_ID/PAYPAL_SECRET). "
+            "Ensure you set PAYPAL_CLIENT_ID and PAYPAL_SECRET as separate environment variables in Render."
+        )
         raise RuntimeError("PayPal credentials not configured on server")
 
     url = f"{PAYPAL_BASE}/v1/oauth2/token"
@@ -518,7 +600,7 @@ def paypal_cancel():
     return render_template_string("""
         <h2>Payment Cancelled</h2>
         <p>You cancelled the PayPal payment. Your order was not completed.</p>
-        <p><a href="/">Return to shop</a></p>
+        <p><a href='/'>Return to shop</a></p>
     """), 200
 
 
